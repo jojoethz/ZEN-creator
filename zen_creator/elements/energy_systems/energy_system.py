@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -8,13 +9,11 @@ import numpy as np
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
-from zen_creator.datasets.dataset_collections.edges import Edges
-from zen_creator.datasets.datasets.nuts_shp import NUTSshp
 from zen_creator.elements.element import Element
 from zen_creator.utils.attribute import Attribute
 
 
-class EnergySystem(Element):
+class EnergySystem(Element, ABC):
     name = "energy_system"
 
     def __init__(self, model: Model):
@@ -307,27 +306,36 @@ class EnergySystem(Element):
             with open(file_path_interp, "w") as json_file:
                 json.dump(param_interp_config.model_dump(), json_file, indent=4)
 
-    # ---------- Custom Methods ----------
+    # ---------- Mandatory attributes to be filled for each energy system --------
 
+    @abstractmethod
     def _set_set_nodes(self) -> Attribute:
-        attr = NUTSshp(source_path=self.source_path).get_set_nodes(self)
+        raise NotImplementedError(
+            "All subclasses of EnergySystem must implement `_set_set_nodes()`"
+        )
+
+    @abstractmethod
+    def _set_set_edges(self) -> Attribute:
+        raise NotImplementedError(
+            "All subclasses of EnergySystem must implement `_set_set_edges()`"
+        )
+
+
+class GenericEnergySystem(EnergySystem):
+
+    name: str = "generic_energy_system"  # for element registry
+
+    def __init__(self, model: Model):
+        self.name = "energy_system"  # overwrite with new name
+        super().__init__(model=model)
+
+    # ---------- Default methods ----------
+    def _set_set_nodes(self) -> Attribute:
+        """Return the set_nodes attribute."""
+        attr = self.set_nodes  # get current value
         return attr
 
     def _set_set_edges(self) -> Attribute:
-        attr = Edges(source_path=self.source_path).get_set_edges(self)
-
-        # check that edges are not empty
-        if (set_edges := attr.df) is None or set_edges.empty:
-            raise ValueError("No edges are set in the energy system.")
-
-        # manual connections NO-BE and NO-FR for gas, and SE-LT for electricity
-        set_edges.loc["NO-FR", :] = ["NO", "FR"]
-        set_edges.loc["FR-NO", :] = ["FR", "NO"]
-        set_edges.loc["NO-BE", :] = ["NO", "BE"]
-        set_edges.loc["BE-NO", :] = ["BE", "NO"]
-        set_edges.loc["SE-LT", :] = ["SE", "LT"]
-        set_edges.loc["LT-SE", :] = ["LT", "SE"]
-        attr.set_data(df=set_edges.drop_duplicates().sort_index())
-
-        # write csv
+        """Return the set_edges attribute."""
+        attr = self.set_edges  # get current value
         return attr
