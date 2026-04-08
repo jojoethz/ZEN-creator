@@ -50,11 +50,8 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.author property when the
         dataset is constructed.
-
-        `TODO`: This method must be implemented. It should return a string
-        containing the name(s) of the author(s) of the dataset.
         """
-        return "Reliability and Risk Engineering Lab"
+        return "ENTSO-E and ENTSO-G"
 
     def _set_publication_year(self) -> int:
         """
@@ -62,11 +59,8 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.publication_year property when the
         dataset is constructed.
-
-        `TODO`: This method must be implemented. It should return an integer
-        representing the publication year of the dataset.
         """
-        return 2026
+        return 2025
 
     def _set_title(self) -> str:
         """
@@ -74,11 +68,8 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.title property when the
         dataset is constructed.
-
-        `TODO`: This method must be implemented. It should return a string
-        giving the title of the dataset.
         """
-        return "Technology lifetimes and availability data for energy system modeling"
+        return "TYNDP 2024: Europe's electricity infrastructure plan."
 
     def _set_publication(self) -> str:
         """
@@ -86,11 +77,8 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.publication property when the
         dataset is constructed.
-
-        `TODO`: This method must be implemented. It should return a string
-        giving the name of the publication.
         """
-        return "Journal of Reliability and Risk Engineering"
+        return "-"
 
     def _set_url(self) -> str:
         """
@@ -98,11 +86,8 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.url property when the dataset is
         constructed.
-
-        'TODO': This method must be implemented. It should return a string
-        containing the url from which the dataset was downloaded.
         """
-        return "https://example.com/dataset.csv"
+        return "https://2024.entsos-tyndp-scenarios.eu/download/"
 
     def _set_path(self) -> Path | None:
         """
@@ -110,11 +95,6 @@ class TemplateDataset(Dataset[pd.DataFrame]):
 
         This method is used to set the self.path property when the dataset is
         constructed.
-
-        `TODO`: This method must be implemented. It should return a Path object
-        pointing to the location of the dataset. It should use the self.source_path
-        argument passed to the constructor to determine the location of the raw
-        dataset files.
         """
         return Path(r"C:\Users\joell\Documents\ETH\Master\master_thesis\datasets\TYNDP24_gens.xlsx")
 
