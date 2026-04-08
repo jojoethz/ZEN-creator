@@ -116,7 +116,7 @@ class TemplateDataset(Dataset[pd.DataFrame]):
         argument passed to the constructor to determine the location of the raw
         dataset files.
         """
-        return Path(r"C:\Users\joell\Documents\ETH\Master\master_thesis\datasets\TYNDP24_gens.xlsx")
+        return Path(".")
 
     def _set_data(self) -> pd.DataFrame:
         """
