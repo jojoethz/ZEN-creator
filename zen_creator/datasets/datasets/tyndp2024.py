@@ -3,43 +3,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from zen_creator.datasets.dataset import Dataset
+from zen_creator.datasets.datsets.dataset import Dataset
 from zen_creator.elements.element import Element
 from zen_creator.utils.attribute import Attribute
 
 
-class TemplateDataset(Dataset[pd.DataFrame]):
+class TYNDP2024Dataset(Dataset[pd.DataFrame]):
     """
-    Template class for datasets. This template is designed as a starting point
-    for users wishing to implement a new dataset. Please read the
-    docstrings and comments carefully for notes on how to use the template.
-
-    All datasets must inherit from the Dataset class and implement the required abstract
-    methods. These methods are called during the construction of the dataset object to
-    set the author, title, publication, publication_year, url, path, and data properties
-    of the dataset. Each of these methods is marked with a `TODO` comment to indicate
-    that they must be implemented. You can search for `TODO` in this file to quickly
-    find all the places where you need to make changes.
-
-    The Dataset class takes a generic type parameter which specifies the
-    return type of the data property. Please set this to the appropriate type
-    for your dataset (e.g., pd.DataFrame, Dict[str, pd.DataFrame], etc.) and
-    adjust the return type of _get_data() accordingly. In this template, we have set
-    it to pd.DataFrame for demonstration purposes.
-
-    All Datasets are singleton objects, meaning that they only get constructed once
-    regardless of how many times they are instantiated. This is because datasets can be
-    large and expensive to load, so we want to avoid loading them multiple times.
-    The first time a dataset is instantiated, it will be constructed and loaded
-    as normal. The second time it is instantiated, the existing instance will
-    be returned instead of constructing a new one. This means that the constructor
-    and the methods called during construction (i.e., the methods marked
-    with `TODO` comments) will only be called once, even if the dataset is
-    instantiated multiple times. This also means that the raw data only gets loaded
-    once, and subsequent instantiations of the dataset will use the already loaded data.
+    Dataset for TYNDP 2024.
+    
     """
-
-    name = "template_dataset"
+    name = "TYNDP2024"
 
     def __init__(self, source_path: Path | str | None = None):
         super().__init__(source_path=source_path)
@@ -96,7 +70,7 @@ class TemplateDataset(Dataset[pd.DataFrame]):
         This method is used to set the self.path property when the dataset is
         constructed.
         """
-        return Path(r"C:\Users\joell\Documents\ETH\Master\master_thesis\datasets\TYNDP24_gens.xlsx")
+        return self.source_path/"TYNDP24_gens.xlsx"
 
     def _set_data(self) -> pd.DataFrame:
         """
@@ -117,15 +91,45 @@ class TemplateDataset(Dataset[pd.DataFrame]):
         """
         # can access self.path to load the dataset,
         # but here we will just return a dummy dataset for demonstration purposes
-        data = pd.DataFrame(
-            {"max_load": [100, 150, 200, 250], "availability_import": [1, 2, 3, 4]},
-            index=[
-                "template_conversion_technology",
-                "template_storage_technology",
-                "template_transport_technology",
-                "template_retrofitting_technology",
-            ],
+        data = pd.read_excel(self.path(), sheet_name="Capacity_dispatch")
+        data.columns = data.columns.str.strip()
+
+        tyndp = data[
+            (data["Scenario"] == "National Trends") &
+            (data["Year"] == target_year) &
+            (data["Climate Year"] == "CY 2009")
+        ].copy()
+
+        tyndp["Country"] = tyndp["Node"].str[:2].replace({"GR": "EL"})
+        tyndp = tyndp[tyndp["Country"].isin(zen_countries)].copy()
+
+        tyndp_fuel_map = {
+            "biomass_plant": "biomass_plant",
+            "hard_coal_plant": "hard_coal_plant",
+            "lignite_coal_plant": "lignite_coal_plant",
+            "natural_gas_turbine": "natural_gas_turbine",
+            "nuclear": "nuclear",
+            "oil_plant": "oil_plant",
+            "photovoltaics": "photovoltaics",
+            "reservoir_hydro": "reservoir_hydro",
+            "run-of-river_hydro": "run-of-river_hydro",
+            "waste_plant": "waste_plant",
+            "wind_offshore": "wind_offshore",
+            "wind_onshore": "wind_onshore",
+            "pumped_hydro": "pumped_hydro",
+        }
+        tyndp["Fuel"] = tyndp["Fuel"].map(lambda x: tyndp_fuel_map.get(x, x))
+        #tyndp = tyndp[tyndp["Fuel"].isin(zen_fuels)].copy()
+
+        # --- TYNDP KAPAZITÄT ---
+        tyndp_capacity = tyndp[tyndp["Parameter"] == "Capacity (MW)"].copy()
+        tyndp_country_cap = (
+            tyndp_capacity.groupby(["Country", "Fuel"])["Value"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Value": "Value_TYNDP_cap"})
         )
+        tyndp_country_cap["Value_TYNDP_cap"] = tyndp_country_cap["Value_TYNDP_cap"] / 1000
 
         return data
 
