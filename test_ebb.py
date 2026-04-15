@@ -50,8 +50,17 @@ for tech_name in technology_list:
         continue
     technology = model.elements[tech_name]
 
-    cap_attr = entsoe_ds.get_capacity(technology)
-    technology.capacity = cap_attr
+    # Temporäres Attribut mit dem korrekten DataFrame erzeugen
+    temp_attr = entsoe_ds.get_capacity(technology)
+    
+    # WICHTIG: set_data auf dem BESTEHENDEN capacity-Attribut aufrufen
+    technology.capacity_existing.set_data(
+        df=temp_attr.df,           # der fertig vorbereitete MultiIndex-DataFrame
+        unit=temp_attr.unit,
+        source=temp_attr.source
+    )
+
+    print(f"✅ capacity_updated for {tech_name} (rows: {len(temp_attr.df)})")
 
 # # 3) Rebuild to apply subclass-specific _set_ logic, use only later
 # model.build()
