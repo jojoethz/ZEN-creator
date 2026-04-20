@@ -1,4 +1,5 @@
 import json
+import logging
 import shutil
 from pathlib import Path
 from typing import Iterable, Optional, Type
@@ -21,6 +22,8 @@ from zen_creator.elements import (
 from zen_creator.elements.element import Element
 from zen_creator.sectors import Sector
 from zen_creator.utils.default_config import Config, ElementTypeList
+
+logger = logging.getLogger(__name__)
 
 
 class Model:
@@ -62,8 +65,18 @@ class Model:
             config (Config | str | Path): The configuration for the model.
                 Can be a Config object, or a path to a config file.
 
+        Returns:
+            Model: A new Model instance initialized from the configuration.
+
         Raises:
             TypeError: If config is not a valid type.
+
+        Examples:
+            >>> from pathlib import Path
+            >>> from zen_creator.model import Model
+            >>> model = Model.from_config(Path("./config.yaml"))
+            >>> model.build()
+            >>> model.write()
         """
         # set attributes from input arguments
         model = cls()
@@ -123,6 +136,14 @@ class Model:
 
         Raises:
             ValueError: If the existing model path does not exist.
+
+        Examples:
+            >>> from pathlib import Path
+            >>> from zen_creator.model import Model
+            >>> existing = Path("./existing_model")
+            >>> model = Model.from_existing(existing)
+            >>> model.name = "updated_model"
+            >>> model.write()
         """
         existing_model_path = Path(existing_model_path)
 
@@ -138,7 +159,7 @@ class Model:
         model = cls.from_config(config)
 
         # overwrite default values with values from existing model
-        print(
+        logger.info(
             f"Overwrite attributes using existing "
             f"model {existing_model_path} ----------"
         )
@@ -455,6 +476,10 @@ class Model:
             TypeError: If element is not a string.
             ValueError: If the element is not registered. Elements get
                 registered when their class definitions are imported.
+
+        Examples:
+            >>> model = Model.from_config("./config.yaml")
+            >>> model.add_element_by_name("electricity", generic="carrier")
         """
         generic_map: dict[
             str,
@@ -483,7 +508,9 @@ class Model:
             )
 
         if element_name in self.elements:
-            print(f"Element '{element_name}' already exists in the dictionary.")
+            logger.warning(
+                f"Element '{element_name}' already exists in the dictionary."
+            )
             return
 
         # Get type class and generic class
@@ -526,13 +553,15 @@ class Model:
         # initialize element
         element = element_cls(model=self)
 
-        print(f"Add element {element.name}")
+        logger.info(f"Add element {element.name}")
 
         # add (name, element) pair to model.elements
         if element.name not in self.elements:
             self.elements[element.name] = element
         else:
-            print(f"Element '{element.name}' already exists in the dictionary.")
+            logger.warning(
+                f"Element '{element.name}' already exists in the dictionary."
+            )
 
         return
 
@@ -558,7 +587,9 @@ class Model:
         ]
 
         if not matches:
-            print(f"No element of type '{element_cls.__name__}' found in the model.")
+            logger.warning(
+                f"No element of type '{element_cls.__name__}' found in the model."
+            )
             return
 
         if len(matches) > 1:
@@ -579,7 +610,7 @@ class Model:
         Args:
             name (str): The name of the element to remove.
         """
-        print(f"Remove element {name}")
+        logger.info(f"Remove element {name}")
         del self.elements[name]
 
     def add_sector_by_name(self, sector: str) -> None:
@@ -591,6 +622,10 @@ class Model:
         Raises:
             TypeError: If sector is not a string.
             ValueError: If the sector is not registered.
+
+        Examples:
+            >>> model = Model.from_config("./config.yaml")
+            >>> model.add_sector_by_name("electricity")
         """
         if not isinstance(sector, str):
             raise TypeError(
@@ -622,7 +657,7 @@ class Model:
                 f"got '{type(sector_cls).__name__}' instead."
             )
 
-        print(f"Add sector: {sector_cls.name} --------")
+        logger.info(f"Add sector: {sector_cls.name} --------")
 
         for element in sector_cls().elements:
             self.add_element(element)
@@ -644,7 +679,7 @@ class Model:
                 f"got '{type(sector_cls).__name__}' instead."
             )
 
-        print(f"Remove sector: {sector_cls.name} --------")
+        logger.info(f"Remove sector: {sector_cls.name} --------")
 
         for element in sector_cls().elements:
             self.remove_element(element)
@@ -655,7 +690,7 @@ class Model:
         """
         Builds the model by calling build() method of all elements.
         """
-        print("Build model --------")
+        logger.info("Build model --------")
 
         # build energy system first
         self.energy_system.build()
@@ -671,13 +706,19 @@ class Model:
 
         This method validates the model, removes any existing output directory,
         writes the system file, and saves all elements.
+
+        Examples:
+            >>> model = Model.from_config("./config.yaml")
+            >>> model.build()
+            >>> model.validate()
+            >>> model.write()
         """
         # verify completeness
         self.validate()
 
         # remove output path if it exists
         if self.output_path.exists():
-            print(
+            logger.warning(
                 f"Output path {self.output_path} already exists. Deleting "
                 "existing contents."
             )
@@ -693,7 +734,7 @@ class Model:
         for element in self.elements.values():
             element.write()
 
-        print("Done")
+        logger.info("Done")
 
     def write_system_file(self) -> None:
         """Write the system.json file for the model.

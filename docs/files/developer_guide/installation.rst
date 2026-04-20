@@ -36,7 +36,7 @@ repository.
 
 **Track the upstream repository:**
 
-In your terminal window, navigate to the folder in which ZEN-garden was
+In your terminal window, navigate to the folder in which ZEN-creator was
 installed (i.e. the folder where the file ``zen_creator_env.yml`` is located)::
 
     cd <path_to_zen_creator_repo>
@@ -46,18 +46,18 @@ Track the upstream repository by running the following lines in Git-Bash::
     git remote add upstream https://github.com/ZEN-universe/ZEN-creator.git
     git fetch upstream
 
-**Create the ZEN-garden conda environment:**
+**Create the ZEN-creator conda environment:**
 
 Open the Anaconda Prompt application. This is a terminal window provided by
 Anaconda which allows you to run Anaconda commands.
 
 In the Anaconda Prompt, change the directory to the root directory of your 
-local ZEN-garden repository i.e. the folder where the file 
+local ZEN-creator repository i.e. the folder where the file 
 ``zen_creator_env.yml`` is located::
 
   cd <path_to_zen_creator_repo>
 
-Now you can install the conda environment for zen-garden with the following 
+Now you can install the conda environment for zen-creator with the following 
 command::
 
   conda env create -f zen_creator_env.yml
@@ -67,11 +67,11 @@ successful, you can see the environment at
 ``C:\Users\<username>\anaconda3\envs`` or wherever Anaconda is installed.
 
 .. note::
-    If you forked the ZEN-garden repository and created the environment from 
+    If you forked the ZEN-creator repository and created the environment from 
     ``zen_creator_env.yml``, then the environment will by default be 
     called ``zen-creator-env``.
 
 .. note::
     We strongly recommend working with conda environments. When installing the 
-    zen-garden conda environment via the ``zen_creator_env.yml``, the ZEN-creator 
+    zen-creator conda environment via the ``zen_creator_env.yml``, the ZEN-creator 
     package, as well as all other dependencies, are installed automatically. 

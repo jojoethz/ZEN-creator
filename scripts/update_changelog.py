@@ -22,19 +22,16 @@ environment for use in subsequent workflow steps.
 import os
 import re
 import tomllib  # Python 3.11+
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Tuple
 
-from pydantic import BaseModel, Field
 
-
-class ChangeCategory(BaseModel):
+@dataclass
+class ChangeCategory:
     title: str
-    changes: list[str] = Field(default_factory=list)
-
-    def __init__(self, title: str, changes: list[str] | None = None):
-        super().__init__(title=title, changes=[] if changes is None else changes)
+    changes: list[str] = field(default_factory=list)
 
 
 CategorizedChanges = dict[str, ChangeCategory]
@@ -84,7 +81,7 @@ def get_zen_garden_version(pyproject_toml_file: Path) -> str:
     Returns:
         The project version string (e.g. "1.2.3").
     """
-    # get ZEN-garden version
+    # get zen-creator version
     with open(pyproject_toml_file, "rb") as f:
         data = tomllib.load(f)
     version = data["project"]["version"]
@@ -118,7 +115,7 @@ def parse_changes_from_pr_body(
     # get pull request information
     pr_info = (
         f"[[🔀 PR #{pr_number}]"
-        f"(https://github.com/ZEN-universe/ZEN-garden/pull/{pr_number}) "
+        f"(https://github.com/ZEN-universe/ZEN-creator/pull/{pr_number}) "
         f"@{pr_author}]"
     )
     # Extract "Detailed list of changes" section
@@ -355,7 +352,7 @@ def update_changelog(
         semver_bump (str): Semantic version bump type.
         pr_number (str): Pull request number.
         pr_author (str): Pull request author username.
-        new_version (str): The new version of ZEN-garden
+        new_version (str): The new version of ZEN-creator
 
     Returns:
         str: The full updated changelog text.

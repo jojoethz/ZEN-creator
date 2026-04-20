@@ -2,15 +2,21 @@
 requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
+[tool.flit.module]
+name = "zen_creator"
+
+[tool.flit.sdist]
+include = ["zen_creator/py.typed"]
+
 [project]
 name = "zen_creator"
-version = "0.0.1"
+version = "1.2.0"
 description="ZEN-creator allows for the creation and management of datasets for ZEN-garden."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-  { name="Jacob Mannhardt", email="zen-garden@ethz.ch" },
-  { name="Christoph Funke"},
+  { name="Christoph Funke", email="zen-garden@ethz.ch" },
+  { name="Jacob Mannhardt"},
 ]
 
 dependencies = [
