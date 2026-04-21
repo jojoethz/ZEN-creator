@@ -6,6 +6,8 @@ import pandas as pd
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.elements.element import Element
 from zen_creator.utils.attribute import Attribute
+from zen_creator.datasets.datasets.metadata import MetaData
+from zen_creator.datasets.datasets.metadata import SourceInformation
 
 
 class EntsoePPDataset(Dataset[pd.DataFrame]):
@@ -18,20 +20,15 @@ class EntsoePPDataset(Dataset[pd.DataFrame]):
     def __init__(self, source_path: Path | str | None = None):
         super().__init__(source_path=source_path)
 
-    def _set_author(self) -> str:
-        return "ENTSO-E"
-
-    def _set_publication_year(self) -> int:
-        return 2026
-
-    def _set_title(self) -> str:
-        return "Technology lifetimes and availability data for energy system modeling"
-
-    def _set_publication(self) -> str:
-        return "Journal of Reliability and Risk Engineering"
-
-    def _set_url(self) -> str:
-        return "https://example.com/dataset.csv"
+    def _set_metadata(self) -> MetaData:
+        return MetaData(
+            name=self.name,  # Use the class attribute "entsoe_powerplants2025"
+            author=["ENTSO-E"], 
+            publication_year=2026,
+            title="Technology lifetimes and availability data for energy system modeling",
+            publication="Journal of Reliability and Risk Engineering",
+            url="https://example.com/dataset.csv"
+        )
 
     def _set_path(self) -> Path | None:
         return Path(self.source_path) / "generator_data.xlsx"
@@ -124,14 +121,16 @@ class EntsoePPDataset(Dataset[pd.DataFrame]):
                 df_capacity.groupby(["node", "year_construction"], as_index=False)["capacity_existing"]
                 .sum()
             )
-
-            # WICHTIG: MultiIndex setzen (genau das, was ZEN-creator verlangt)
+            #set multi-index
             df_capacity = df_capacity.set_index(["node", "year_construction"])
 
         attr = Attribute("capacity", element)
         attr.set_data(
             df=df_capacity,
             unit="GW",
-            source=self.metadata,
+            source=SourceInformation(
+                description="Existing capacities extracted from ENTSO-E 2025 dataset.",
+                metadata=self.metadata 
+            ),
         )
         return attr
