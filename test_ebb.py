@@ -129,19 +129,20 @@ for tech_name in fossil_techs:
         base_lifetime = getattr(attr, "default_value", None)
         
         if base_lifetime is not None:
-            new_lifetime = base_lifetime + 10
+            new_lifetime = float(base_lifetime + 10) # Ensure it's a float for JSON compatibility
             
-            # Create a DataFrame and explicitly set the index to 'technology'
+            # 1. EXPLICITLY OVERWRITE THE DEFAULT VALUE SO IT SAVES CORRECTLY
+            attr.default_value = new_lifetime
+            
+            # 2. Keep the DataFrame so ZEN-creator still logs your thesis metadata!
             df_life = pd.DataFrame({
                 "technology": [tech_name], 
                 "value": [new_lifetime]
             })
             df_life.set_index("technology", inplace=True)
             
-            # Try to keep the original unit if it exists, otherwise default to "1"
             current_unit = getattr(attr, "unit", "1")
             
-            # Inject the new DataFrame and your thesis metadata
             attr.set_data(
                 df=df_life, 
                 unit=current_unit,
@@ -150,9 +151,6 @@ for tech_name in fossil_techs:
                     metadata=thesis_metadata
                 )
             )
-            print(f"Lifetime extended for {tech_name}: {base_lifetime} -> {new_lifetime}")
-        else:
-            print(f"Could not find a default_value for {tech_name}'s lifetime.")
 
 # # 3) Rebuild to apply subclass-specific _set_ logic, use only later
 # model.build()
