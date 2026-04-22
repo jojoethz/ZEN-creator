@@ -54,61 +54,73 @@ for tech_name in technology_list:
 
     print(f"capacity_updated for {tech_name} (rows: {len(temp_attr.df)})")
 
-# 2. For all technologies: set capacity_addition_max to 0 for 2025 
-# (to prevent new additions in 2025, as the new dataset already includes all plants that are active in 2025)
-model_years = [2025, 2030, 2035,2040, 2045, 2050] 
+# # ================================================
+# # 2. For all technologies: set capacity_addition_max to 0 for 2025 
+# # ================================================
+# model_years = [2025, 2030, 2035, 2040, 2045, 2050] 
+# # These are the ONLY indices ZEN-garden officially recognizes
+# allowed_indices = ['carrier', 'edge', 'location', 'node', 'technology', 'time', 'year', 'year_construction']
 
-for tech_name, technology in model.elements.items():
-    if not hasattr(technology, "capacity_addition_max"):
-        continue
+# for tech_name, technology in model.elements.items():
+#     if not hasattr(technology, "capacity_addition_max"):
+#         continue
 
-    attr = technology.capacity_addition_max
+#     attr = technology.capacity_addition_max
 
-    # case A: limits already exist → modify existing DataFrame
-    if hasattr(attr, 'df') and attr.df is not None and not attr.df.empty:
-        df_add = attr.df.copy()
-        idx_names = df_add.index.names
-        df_reset = df_add.reset_index()
-
-        if "year" in df_reset.columns:
-            # Setze value auf 0 für das Jahr 2025
-            df_reset.loc[df_reset["year"] == 2025, "value"] = 0
-
-            # Ursprünglichen MultiIndex wiederherstellen
-            if idx_names != [None]:  
-                df_reset.set_index(idx_names, inplace=True)
-
-        # APPLY TO df_reset IN THIS BRANCH
-        attr.set_data(
-            df=df_reset, 
-            source=SourceInformation(
-                description="Max capacity addition forced to 0 for 2025.",
-                metadata=thesis_metadata
-            )
-        )
-
-    # case B: no existing limits → create new DataFrame with 0 for 2025 and np.inf for the rest
-    else:
-        new_limits = []
-        for y in model_years:
-            if y == 2025:
-                new_limits.append({"year": y, "value": 0.0}) # Verbot für 2025
-            else:
-                new_limits.append({"year": y, "value": np.inf}) # "Kein Limit" für den Rest
+#     # case A: limits already exist → STRICTLY filter and clean the DataFrame
+#     if hasattr(attr, 'df') and attr.df is not None and not attr.df.empty:
+#         df_mod = attr.df.copy()
         
-        df_new = pd.DataFrame(new_limits)
+#         # 1. Temporarily flatten to clean up columns easily
+#         if df_mod.index.names != [None]:
+#             df_mod = df_mod.reset_index()
+            
+#         # 2. Identify the true value column (usually the last column that isn't an index)
+#         non_index_cols = [c for c in df_mod.columns if c not in allowed_indices]
+#         val_col = non_index_cols[-1] if non_index_cols else df_mod.columns[-1]
         
-        # ZEN-creator bevorzugt oft, dass die Dimension ('year') im Index liegt
-        df_new.set_index("year", inplace=True)
+#         # 3. NUKE ANY EXTRA COLUMNS: Keep ONLY the official index columns + the single value column
+#         valid_cols = [c for c in df_mod.columns if c in allowed_indices]
+#         df_mod = df_mod[valid_cols + [val_col]]
         
-        # APPLY TO df_new IN THIS BRANCH
-        attr.set_data(
-            df=df_new, 
-            source=SourceInformation(
-                description="Max capacity addition forced to 0 for 2025.",
-                metadata=thesis_metadata
-            )
-        )
+#         # 4. Rename the data column STRICTLY to the attribute name
+#         df_mod.rename(columns={val_col: "capacity_addition_max"}, inplace=True)
+        
+#         # 5. Apply the zero limit for 2025
+#         if "year" in df_mod.columns:
+#             df_mod.loc[df_mod["year"] == 2025, "capacity_addition_max"] = 0.0
+            
+#         # 6. Put the valid indices back!
+#         if valid_cols:
+#             df_mod.set_index(valid_cols, inplace=True)
+
+#         attr.set_data(
+#             df=df_mod, 
+#             source=SourceInformation(
+#                 description="Max capacity addition forced to 0 for 2025.",
+#                 metadata=thesis_metadata
+#             )
+#         )
+
+#     # case B: no existing limits → create brand new clean DataFrame
+#     else:
+#         new_limits = []
+#         for y in model_years:
+#             new_limits.append({
+#                 "year": y, 
+#                 "capacity_addition_max": 0.0 if y == 2025 else np.inf # <-- Explicitly named here too!
+#             })
+            
+#         df_new = pd.DataFrame(new_limits)
+#         df_new.set_index("year", inplace=True)
+        
+#         attr.set_data(
+#             df=df_new, 
+#             source=SourceInformation(
+#                 description="Max capacity addition forced to 0 for 2025.",
+#                 metadata=thesis_metadata
+#             )
+#         )
 
 # ================================================
 # 3. lifetime has to be extended by +10 years for all fossil technologies 
