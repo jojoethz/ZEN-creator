@@ -11,7 +11,7 @@ model = Model.from_existing(Path("C:/Users/joell/Documents/ETH/Master/master_the
 
 # 2) Modify model
 model.output_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
-model.name = "Ebb_joel_with_pp_new"
+model.name = "Europe_calibrated"
 
 # 3) Load new dataset
 entsoe_ds = EntsoePPDataset(source_path=Path("C:/Users/joell/Documents/ETH/Master/master_thesis/datasets"))
@@ -24,6 +24,14 @@ thesis_metadata = MetaData(
     publication="ETH Zurich",
     url=""
 )
+
+# Nur für den Test:
+tech_test = model.elements["biomass_plant"]
+temp_attr = entsoe_ds.get_capacity(tech_test)
+
+print("Index-Namen:", temp_attr.df.index.names)
+print("Spalten:", temp_attr.df.columns)
+print(temp_attr.df.head(2))
 
 # 4) Change parameters
 # ================================================
@@ -45,7 +53,6 @@ for tech_name in technology_list:
     # Temporäres Attribut mit dem korrekten DataFrame erzeugen
     temp_attr = entsoe_ds.get_capacity(technology)
     
-    # WICHTIG: set_data auf dem BESTEHENDEN capacity-Attribut aufrufen
     technology.capacity_existing.set_data(
         df=temp_attr.df,           # der fertig vorbereitete MultiIndex-DataFrame
         unit=temp_attr.unit,
@@ -53,6 +60,7 @@ for tech_name in technology_list:
     )
 
     print(f"capacity_updated for {tech_name} (rows: {len(temp_attr.df)})")
+
 
 # ================================================
 # 2. lifetime has to be extended by +10 years for all fossil technologies 
@@ -87,4 +95,3 @@ for tech_name in fossil_techs:
 
 # 4) Validate and write files
 model.write() 
-print("Model saved - only 2025 includes capacity_addition_max = 0")
