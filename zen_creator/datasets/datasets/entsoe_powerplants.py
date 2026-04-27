@@ -51,23 +51,25 @@ class EntsoePPDataset(Dataset[pd.DataFrame]):
 
         # Fuel → Technology mapping
         pp_fuel_map = {
+            "Battery": "battery",
             "Biomass & Waste": "biomass_plant",
             "Coal Hard": "hard_coal_plant",
             "Coal Lignite": "lignite_coal_plant",
             "Natural Gas": "natural_gas_turbine",
             "Nuclear": "nuclear",
             "Oil": "oil_plant",
+            "Process Gas": "natural_gas_turbine",
             "Solar": "photovoltaics",
         }
         df_pp["Fuel"] = df_pp["Fueltype"].map(pp_fuel_map)
 
         # Wind + Hydro need Technology column as well
         tech_map = {
-            "Wind Onshore": "wind_onshore",
-            "Wind Offshore": "wind_offshore",
             "Storage Hydro": "reservoir_hydro",
             "Run-of-River Hydro": "run-of-river_hydro",
             "Pumped Storage": "pumped_hydro",
+            "Wind Onshore": "wind_onshore",
+            "Wind Offshore": "wind_offshore",
         }
         tech_dependent_mask = df_pp["Fueltype"].isin(["Wind", "Hydro"])
         df_pp.loc[tech_dependent_mask, "Fuel"] = df_pp.loc[tech_dependent_mask, "Technology"].map(tech_map)
