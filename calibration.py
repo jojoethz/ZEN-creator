@@ -27,7 +27,6 @@ thesis_metadata = MetaData(
     url=""
 )
 
-
 # 4) Change parameters
 # ================================================
 # 1. Only for technologies in technology_list: set capacity_existing based on new dataset
@@ -102,10 +101,10 @@ for tech_name in fossil_techs:
             
             print(f"Lifetime extended for {tech_name} from {base_lifetime} to {new_lifetime} in attributes.json")
 
+
 # ================================================
-# 3. Add capacity limits for 2030 based on TYNDP
+# 3. Add capacity limits for 2025 (fixed) and 2030 (TYNDP)
 # ================================================
-# We apply this to the same technology list but add PV
 technology_list.append("photovoltaics")
 
 for tech_name in technology_list:
@@ -114,51 +113,90 @@ for tech_name in technology_list:
         
     technology = model.elements[tech_name]
 
-
-    # 1. Fetch the capacity from TYNDP dataset for the year 2030
-    # Note: Ensure your TYNDP2024Dataset.get_capacity uses 'year' as index name now
-    tyndp_attr = tyndp_ds.get_capacity(technology, target_year=2030)
-    df_tyndp = tyndp_attr.df.copy()
+    # --- 1. Fetch 2025 Existing Capacity ---
+    entsoe_attr = entsoe_ds.get_capacity(technology)
     
-    if df_tyndp.empty:
-        continue
+    spatial_indices = [idx for idx in entsoe_attr.df.index.names if idx in ["location", "node", "edge"]]
+    
+    df_2025 = entsoe_attr.df.copy().reset_index()
+    
+    if not df_2025.empty:
+        df_2025 = df_2025.groupby(spatial_indices, as_index=False)["capacity_existing"].sum()
+    else:
+        # Handle case where technology has zero existing capacity everywhere
+        df_2025 = pd.DataFrame(columns=spatial_indices + ["capacity_existing"])
         
-    # TYNDP data is provided in the 'capacity_existing' column
-    cap_existing = df_tyndp["capacity_existing"]
+    df_2025["year"] = 2025
     
-    # 2. Calculate the bounds
-    # Lower bound: 70% of projected capacity
-    lower_bound_values = cap_existing * 0.7
+    # Set limit EXACTLY to existing capacity
+    df_max_2025 = df_2025[spatial_indices + ["year", "capacity_existing"]].rename(columns={"capacity_existing": "capacity_limit"})
+
+    # --- 2. Fetch 2030 TYNDP Capacity ---
+    tyndp_attr = tyndp_ds.get_capacity(technology, target_year=2030)
+    df_2030 = tyndp_attr.df.copy().reset_index()
     
-    # Upper bound: 130% of projected capacity, or 0.1 GW if projection is 0
-    upper_bound_values = cap_existing * 1.3
-    upper_bound_values = upper_bound_values.where(cap_existing > 0, 0.1)  # Set to 0.1 GW if projected capacity is 0 to avoid zero upper bound
-    
-    # 3. Set the Upper Bound (capacity_limit)
-    # This will create/update capacity_limit.csv and trigger constraint_technology_max_capacity
+    if not df_2030.empty:
+        if "year" not in df_2030.columns:
+            df_2030["year"] = 2030
+            
+        upper_bound_values = df_2030["capacity_existing"] * 1.3
+        upper_bound_values = upper_bound_values.where(df_2030["capacity_existing"] > 0, 0.1) 
+        
+        df_max_2030 = df_2030[spatial_indices + ["year"]].copy()
+        df_max_2030["capacity_limit"] = upper_bound_values
+        
+        # --- NEW: Ensure all locations have a 2025 limit ---
+        # Extract all unique locations from both 2025 and 2030
+        locs_2025 = df_max_2025[spatial_indices].drop_duplicates()
+        locs_2030 = df_max_2030[spatial_indices].drop_duplicates()
+        all_locs = pd.concat([locs_2025, locs_2030]).drop_duplicates()
+        
+        # Create a full 2025 DataFrame for all known locations
+        full_2025 = all_locs.copy()
+        full_2025["year"] = 2025
+        
+        # Merge the known 2025 limits and fill any missing locations with 0.0
+        df_max_2025 = pd.merge(full_2025, df_max_2025, on=spatial_indices + ["year"], how="left")
+        df_max_2025["capacity_limit"] = df_max_2025["capacity_limit"].fillna(0.0)
+        # ---------------------------------------------------
+        
+        df_max_combined = pd.concat([df_max_2025, df_max_2030], ignore_index=True)
+        source_to_use = tyndp_attr.sources[0]
+    else:
+        df_max_combined = df_max_2025
+        source_to_use = entsoe_attr.sources[0]
+
+    # --- 3. Rebuild the Index ---
+    index_cols = spatial_indices + ["year"]
+    df_max_combined.set_index(index_cols, inplace=True)
+
+    # --- 4. Set the Data in ZEN-creator ---
     if hasattr(technology, "capacity_limit"):
-        df_max = pd.DataFrame({"capacity_limit": upper_bound_values})
         technology.capacity_limit.set_data(
-            df=df_max,
+            df=df_max_combined,
             unit="GW",
-            source=tyndp_attr.sources[0]
+            source=source_to_use
         )
-        print(f"Upper capacity limit (130%) set for {tech_name}")
-
-
-    # 4. Set the Lower Bound (capacity_min_limit)
-    # This will create/update capacity_min_limit.csv and trigger constraint_technology_min_capacity
-    if hasattr(technology, "capacity_min_limit"):
-        df_min = pd.DataFrame({"capacity_min_limit": lower_bound_values})
-        technology.capacity_min_limit.set_data(
-            df=df_min,
-            unit="GW",
-            source=tyndp_attr.sources[0]
-        )
-        print(f"Lower capacity limit (70%) set for {tech_name}")
-
-# # 3) Rebuild to apply subclass-specific _set_ logic, use only later
-# model.build()
+        print(f"Combined Upper capacity limit set for {tech_name}")
 
 # 4) Validate and write files
 model.write() 
+
+# # ================================================
+# # 5) Post-write cleanup: Delete unwanted files
+# # ================================================
+# print("\n--- Cleaning up unwanted files ---")
+# files_deleted = 0
+
+# for file_path in model.output_folder.rglob("capacity_limit_yearly_variation.csv"):
+#     try:
+#         file_path.unlink()  
+#         print(f"Deleted: {file_path}")
+#         files_deleted += 1
+#     except Exception as e:
+#         print(f"Could not delete {file_path}: {e}")
+        
+# if files_deleted == 0:
+#     print("No 'capacity_limit_yearly_variation.csv' files were found to delete.")
+# else:
+#     print(f"Successfully deleted {files_deleted} file(s).")
