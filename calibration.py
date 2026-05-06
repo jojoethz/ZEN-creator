@@ -191,10 +191,13 @@ for tech_name in technology_list:
 # 4. Fix Units for Non-Energy Technologies (like Steel/Chemicals)
 # ================================================
 for tech_name, element in model.elements.items():
-    # Only check elements that are actually technologies
+    # Sync Power / Base Units
     if hasattr(element, "capacity_lower_limit") and hasattr(element, "capacity_limit"):
-        # Force the lower limit to use the exact same unit as the upper limit
         element.capacity_lower_limit.unit = element.capacity_limit.unit
+        
+    # Sync Energy Units for Storage
+    if hasattr(element, "capacity_lower_limit_energy") and hasattr(element, "capacity_limit_energy"):
+        element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
 
 # 4) Validate and write files
 model.write()
