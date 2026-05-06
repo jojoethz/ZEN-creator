@@ -211,12 +211,8 @@ class SystemConfig(Subscriptable):
 # ------- Dataset configurations ----------------------------
 
 
-class ENSOEAPIConfig(Subscriptable):
-    api_key: Optional[str] = None
-
-
 class DatasetConfig(Subscriptable):
-    ensoe_api: ENSOEAPIConfig = Field(default_factory=ENSOEAPIConfig)
+    setting: bool = True
 
 
 class DatasetCollectionConfig(Subscriptable):

@@ -8,7 +8,6 @@ system:
   set_nodes:
     - CH
     - DE
-
   reference_year: 2023
   unaggregated_time_steps_per_year: 96
   aggregated_time_steps_per_year: 96
@@ -21,6 +20,7 @@ system:
 # add and remove technologies/carriers from the model
 elements:   
   insert:
+    energy_system: energy_system_existing_model
     set_sectors: []
     set_conversion_technologies: 
       - natural_gas_boiler
@@ -46,9 +46,8 @@ elements:
 
 # settings for individual data sources
 data:
-  datasets:
-    ensoe_api:
-      api_key: ""
+  datasets: {}
+  dataset_collections: {}
 
 # settings that go into the energy_system folder
 energy_system:

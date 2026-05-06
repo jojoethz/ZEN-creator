@@ -56,3 +56,11 @@ class Registry(Generic[T]):
             return cls._registry[name]
         else:
             return None
+
+    @classmethod
+    def clear_registry(cls):
+        cls._registry.clear()
+
+    @classmethod
+    def update_registry(cls, new_registry: Dict[str, Type[T]]):
+        cls._registry.update(new_registry)
