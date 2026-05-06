@@ -129,32 +129,47 @@ for tech_name in technology_list:
 
     # --- 2. Build 2025 Capacity Limits (All Zeros) ---
     df_max_2025 = all_locs.copy()
+    df_min_2025 = all_locs.copy()
     if not df_max_2025.empty:
         df_max_2025["year"] = 2025
         df_max_2025["capacity_limit"] = 0.0  # Forces delta_S = 0 in optimization
+        
+        df_min_2025["year"] = 2025
+        df_min_2025["capacity_lower_limit"] = 0.0 
 
     # --- 3. Build 2030 Capacity Limits (TYNDP) ---
     if not df_2030_base.empty:
         if "year" not in df_2030_base.columns:
             df_2030_base["year"] = 2030
             
+        # Upper Bounds
         upper_bound_values = df_2030_base["capacity_existing"] * 1.3
         upper_bound_values = upper_bound_values.where(df_2030_base["capacity_existing"] > 0, 0.1) 
         
         df_max_2030 = df_2030_base[spatial_indices + ["year"]].copy()
         df_max_2030["capacity_limit"] = upper_bound_values
+
+        # Lower Bounds (70% of TYNDP)
+        lower_bound_values = df_2030_base["capacity_existing"] * 0.7
         
+        df_min_2030 = df_2030_base[spatial_indices + ["year"]].copy()
+        df_min_2030["capacity_lower_limit"] = lower_bound_values
+        
+        # Combine
         df_max_combined = pd.concat([df_max_2025, df_max_2030], ignore_index=True)
+        df_min_combined = pd.concat([df_min_2025, df_min_2030], ignore_index=True)
         source_to_use = tyndp_attr.sources[0]
     else:
         # Fallback if no 2030 data exists
         df_max_combined = df_max_2025
+        df_min_combined = df_min_2025
         source_to_use = entsoe_attr.sources[0]
 
     # --- 4. Rebuild the Index & Set Data ---
     if not df_max_combined.empty:
         index_cols = spatial_indices + ["year"]
         df_max_combined.set_index(index_cols, inplace=True)
+        df_min_combined.set_index(index_cols, inplace=True)
 
         if hasattr(technology, "capacity_limit"):
             technology.capacity_limit.set_data(
@@ -163,9 +178,17 @@ for tech_name in technology_list:
                 source=source_to_use
             )
             print(f"Combined Upper capacity limit set for {tech_name}")
+            
+        if hasattr(technology, "capacity_lower_limit"):
+            technology.capacity_lower_limit.set_data(
+                df=df_min_combined,
+                unit="GW",
+                source=source_to_use
+            )
+            print(f"Combined Lower capacity limit set for {tech_name}")
 
 # 4) Validate and write files
-model.write() 
+model.write()
 
 # # ================================================
 # # 5) Post-write cleanup: Delete unwanted files
