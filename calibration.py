@@ -187,6 +187,15 @@ for tech_name in technology_list:
             )
             print(f"Combined Lower capacity limit set for {tech_name}")
 
+# ================================================
+# 4. Fix Units for Non-Energy Technologies (like Steel/Chemicals)
+# ================================================
+for tech_name, element in model.elements.items():
+    # Only check elements that are actually technologies
+    if hasattr(element, "capacity_lower_limit") and hasattr(element, "capacity_limit"):
+        # Force the lower limit to use the exact same unit as the upper limit
+        element.capacity_lower_limit.unit = element.capacity_limit.unit
+
 # 4) Validate and write files
 model.write()
 
