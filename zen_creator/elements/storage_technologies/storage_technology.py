@@ -98,7 +98,7 @@ class StorageTechnology(Technology, ABC):
 
         self._capacity_lower_limit_energy = Attribute(
             "capacity_lower_limit_energy",
-            default_value=np.nan,  # Use NaN again so it only enforces when given data
+            default_value=0.0,
             unit=f"{self.power_unit}*h",
             element=self,
         )
