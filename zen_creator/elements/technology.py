@@ -93,7 +93,7 @@ class Technology(Element, ABC):
 
         self._capacity_lower_limit = Attribute(
             "capacity_lower_limit",
-            default_value=np.nan, 
+            default_value=0.0,
             unit=f"{self.power_unit}",
             element=self,
         )
