@@ -199,6 +199,29 @@ for tech_name, element in model.elements.items():
     if hasattr(element, "capacity_lower_limit_energy") and hasattr(element, "capacity_limit_energy"):
         element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
 
+# ================================================
+# 5. Add small CAPEX for BEV and PHEV to prevent unnecessary capacity addition
+# ================================================
+ev_techs = ["BEV", "PHEV electric part"] 
+
+for tech_name in ev_techs:
+    if tech_name not in model.elements:
+        continue
+        
+    technology = model.elements[tech_name]
+    
+    # ZEN-garden models usually use one of these attributes for CAPEX
+    if hasattr(technology, "capex_specific_conversion"):
+        attr = technology.capex_specific_conversion
+        
+        # Use a dummy float value. Depending on your units (e.g. M€/GW vs €/kW), 
+        # 0.01 or 1.0 is generally small enough not to impact real economics 
+        # but large enough to stop free over-investment.
+        small_capex_penalty = 0.01 
+        
+        attr.default_value = small_capex_penalty
+        print(f"Added small penalty CAPEX of {small_capex_penalty} to {tech_name} in attributes.json")
+
 # 4) Validate and write files
 model.write()
 
