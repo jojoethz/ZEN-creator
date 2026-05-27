@@ -10,7 +10,7 @@ include = ["zen_creator/py.typed"]
 
 [project]
 name = "zen_creator"
-version = "1.2.0"
+version = "1.2.1"
 description="ZEN-creator allows for the creation and management of datasets for ZEN-garden."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -89,20 +89,4 @@ known-first-party = ["your_package_name"]
 #ignore_missing_imports = true
 #check_untyped_defs = false
 #disallow_untyped_defs = false
-exclude = [
-    "zen_creator/datasets/datasets/entsoe.py",
-    "zen_creator/datasets/datasets/eu_building_observatory.py",
-    "zen_creator/datasets/datasets/eurostat.py",
-    "zen_creator/datasets/datasets/when2heat.py",
-    "zen_creator/datasets/datasets/DEA.py",
-    "zen_creator/datasets/datasets/DIW.py",
-    "zen_creator/datasets/datasets/ECB.py",
-    "zen_creator/datasets/datasets/potencia.py",
-    "zen_creator/datasets/dataset_collections/dataset_collection_electricity.py",
-    "zen_creator/datasets/dataset_collections/dataset_collection_heat.py",
-    "zen_creator/datasets/dataset_collections/dataset_collection_technoeconomic_parameters.py",
-    "zen_creator/datasets/datasets/nuts_shp.py",
-    "zen_creator/datasets/datasets/tyndp_edges.py",
-    "zen_creator/datasets/dataset_collections/edges.py",
-    "docs/_ext/docstring.py"
-]
+#exclude = []
