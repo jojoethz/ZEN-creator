@@ -225,21 +225,26 @@ for tech_name in ev_techs:
 # 4) Validate and write files
 model.write()
 
-# # ================================================
-# # 5) Post-write cleanup: Delete unwanted files
-# # ================================================
-# print("\n--- Cleaning up unwanted files ---")
-# files_deleted = 0
+# ================================================
+# 5) Post-write cleanup: Delete unwanted files
+# ================================================
+print("\n--- Cleaning up unwanted files ---")
+files_deleted = 0
 
-# for file_path in model.output_folder.rglob("capacity_limit_yearly_variation.csv"):
-#     try:
-#         file_path.unlink()  
-#         print(f"Deleted: {file_path}")
-#         files_deleted += 1
-#     except Exception as e:
-#         print(f"Could not delete {file_path}: {e}")
-        
-# if files_deleted == 0:
-#     print("No 'capacity_limit_yearly_variation.csv' files were found to delete.")
-# else:
-#     print(f"Successfully deleted {files_deleted} file(s).")
+# Target ONLY the specific directory of the newly generated model
+new_model_path = model.output_folder / model.name
+
+# Check if the directory exists to avoid errors, then search and delete
+if new_model_path.exists():
+    for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
+        try:
+            file_path.unlink()  
+            print(f"Deleted: {file_path}")
+            files_deleted += 1
+        except Exception as e:
+            print(f"Could not delete {file_path}: {e}")
+            
+if files_deleted == 0:
+    print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
+else:
+    print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
