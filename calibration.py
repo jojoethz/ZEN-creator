@@ -29,7 +29,7 @@ thesis_metadata = MetaData(
 
 # 4) Change parameters
 # ================================================
-# 1. Only for technologies in technology_list: set capacity_existing based on new dataset
+# 4.1 Only for technologies in technology_list: set capacity_existing based on new dataset
 # ================================================
 technology_list = ["battery", "biomass_plant", "hard_coal_plant", "lignite_coal_plant", "natural_gas_turbine", "nuclear", "oil_plant", 
                 #"photovoltaics", 
@@ -74,7 +74,7 @@ for tech_name in technology_list:
 
 
 # ================================================
-# 2. lifetime has to be extended by +10 years for all fossil technologies 
+# 4.2 lifetime has to be extended by +10 years for all fossil technologies 
 # (to prevent early retirements due to the new dataset already including all active plants in 2025)
 # ================================================
 fossil_techs = ["hard_coal_plant", "lignite_coal_plant", "natural_gas_turbine", "oil_plant"]
@@ -103,7 +103,7 @@ for tech_name in fossil_techs:
 
 
 # ================================================
-# 3. Add capacity limits for 2025 (fixed to 0) and 2030 (TYNDP)
+# 4.3 Add capacity limits for 2025 (fixed to 0) and 2030 (TYNDP)
 # ================================================
 technology_list.append("photovoltaics")
 
@@ -188,7 +188,7 @@ for tech_name in technology_list:
             print(f"Combined Lower capacity limit set for {tech_name}")
 
 # ================================================
-# 4. Fix Units for Non-Energy Technologies (like Steel/Chemicals)
+# 4.4 Fix Units for Non-Energy Technologies (like Steel/Chemicals)
 # ================================================
 for tech_name, element in model.elements.items():
     # Sync Power / Base Units
@@ -200,7 +200,7 @@ for tech_name, element in model.elements.items():
         element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
 
 # ================================================
-# 5. Add small CAPEX for BEV and PHEV to prevent unnecessary capacity addition
+# 4.5 Add small CAPEX for BEV and PHEV to prevent unnecessary capacity addition
 # ================================================
 ev_techs = ["BEV", "PHEV electric part"] 
 
@@ -222,29 +222,29 @@ for tech_name in ev_techs:
         attr.default_value = small_capex_penalty
         print(f"Added small penalty CAPEX of {small_capex_penalty} to {tech_name} in attributes.json")
 
-# 4) Validate and write files
+# 5) Validate and write files
 model.write()
 
-# ================================================
-# 5) Post-write cleanup: Delete unwanted files
-# ================================================
-print("\n--- Cleaning up unwanted files ---")
-files_deleted = 0
+# # ================================================
+# # 6) Post-write cleanup: Delete unwanted files, but they are necessary for the model to function properly, so we will keep them for now.
+# # ================================================
+# print("\n--- Cleaning up unwanted files ---")
+# files_deleted = 0
 
-# Target ONLY the specific directory of the newly generated model
-new_model_path = model.output_folder / model.name
+# # Target ONLY the specific directory of the newly generated model
+# new_model_path = model.output_folder / model.name
 
-# Check if the directory exists to avoid errors, then search and delete
-if new_model_path.exists():
-    for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
-        try:
-            file_path.unlink()  
-            print(f"Deleted: {file_path}")
-            files_deleted += 1
-        except Exception as e:
-            print(f"Could not delete {file_path}: {e}")
+# # Check if the directory exists to avoid errors, then search and delete
+# if new_model_path.exists():
+#     for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
+#         try:
+#             file_path.unlink()  
+#             print(f"Deleted: {file_path}")
+#             files_deleted += 1
+#         except Exception as e:
+#             print(f"Could not delete {file_path}: {e}")
             
-if files_deleted == 0:
-    print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
-else:
-    print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
+# if files_deleted == 0:
+#     print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
+# else:
+#     print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
