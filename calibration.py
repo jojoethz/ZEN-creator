@@ -222,29 +222,27 @@ for tech_name in ev_techs:
         attr.default_value = small_capex_penalty
         print(f"Added small penalty CAPEX of {small_capex_penalty} to {tech_name} in attributes.json")
 
+
 # 5) Validate and write files
 model.write()
 
-# # ================================================
-# # 6) Post-write cleanup: Delete unwanted files, but they are necessary for the model to function properly, so we will keep them for now.
-# # ================================================
-# print("\n--- Cleaning up unwanted files ---")
-# files_deleted = 0
+# ================================================
+# 6) Post-write modifications & cleanup
+# ================================================
+print("\n--- Running Post-Write Actions ---")
+new_model_path = model.output_folder / model.name
+files_deleted = 0
 
-# # Target ONLY the specific directory of the newly generated model
-# new_model_path = model.output_folder / model.name
-
-# # Check if the directory exists to avoid errors, then search and delete
-# if new_model_path.exists():
-#     for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
-#         try:
-#             file_path.unlink()  
-#             print(f"Deleted: {file_path}")
-#             files_deleted += 1
-#         except Exception as e:
-#             print(f"Could not delete {file_path}: {e}")
+if new_model_path.exists():
+    for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
+        try:
+            file_path.unlink()  
+            print(f"Deleted: {file_path}")
+            files_deleted += 1
+        except Exception as e:
+            print(f"Could not delete {file_path}: {e}")
             
-# if files_deleted == 0:
-#     print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
-# else:
-#     print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
+if files_deleted == 0:
+    print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
+else:
+    print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
