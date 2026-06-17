@@ -21,7 +21,7 @@ from zen_creator.elements import (
 )
 from zen_creator.elements.element import Element
 from zen_creator.sectors import Sector
-from zen_creator.utils.default_config import Config, ElementTypeList
+from zen_creator.utils.config import Config, ElementTypeList
 
 logger = logging.getLogger(__name__)
 
@@ -733,7 +733,7 @@ class Model:
         for element in self.elements.values():
             element.write()
 
-        logger.info("Done")
+        logger.info("Done writing model")
 
     def write_system_file(self) -> None:
         """Write the system.json file for the model.

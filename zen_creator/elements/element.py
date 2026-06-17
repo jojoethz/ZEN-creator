@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar, Type
 if TYPE_CHECKING:
     from zen_creator.model import Model
     from zen_creator.utils.attribute import Attribute
-    from zen_creator.utils.default_config import Config
+    from zen_creator.utils.config import Config
 import json
 from pathlib import Path
 
@@ -17,7 +17,7 @@ from zen_creator.utils.registry import Registry
 logger = logging.getLogger(__name__)
 
 
-class Element(Registry["Element"], ABC):
+class Element(ABC, Registry["Element"], is_base_registry=True):
     """Base class for all elements in the ZEN model.
 
     This class provides the foundation for carriers, technologies, and other
@@ -150,6 +150,9 @@ class Element(Registry["Element"], ABC):
         # write attributes.json file
         self.save_attributes()
 
+        # write sources.md file
+        self.save_sources()
+
         # write data files
         self.save_data()
 
@@ -169,7 +172,6 @@ class Element(Registry["Element"], ABC):
         """
         output = {}
         for attr_name in self._attribute_names:
-
             attr = getattr(self, attr_name)
 
             # skip for attributes such as set_nodes or set_edges with not default
@@ -186,6 +188,19 @@ class Element(Registry["Element"], ABC):
         output = self.attributes_to_dict()
         with (out_path / "attributes.json").open("w") as f:
             json.dump(output, f, indent=4)
+
+    def save_sources(self):
+        """Save the element's sources to sources.md."""
+        if not any(
+            getattr(self, attr_name).sources for attr_name in self._attribute_names
+        ):
+            return
+
+        logger.debug(f"Saving 'sources.md' for element '{self.name}.'")
+
+        out_path = self.output_path
+        with (out_path / "sources.md").open("w") as f:
+            f.write(self.sources_to_str())
 
     def save_data(self):
         """Save the element's data files."""
@@ -209,7 +224,7 @@ class Element(Registry["Element"], ABC):
             if attr.sources:
                 has_sources = True
                 output_lines.extend([attr_name, "-" * len(attr_name), ""])
-                output_lines.append(attr.sources_to_string())
+                output_lines.append(attr.sources_to_str())
                 output_lines.append("")
 
         if not has_sources:
