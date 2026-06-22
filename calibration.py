@@ -1,11 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from zen_creator.model import Model
-from zen_creator.datasets.datasets.metadata import MetaData
-from zen_creator.datasets.datasets.metadata import SourceInformation
-from zen_creator.datasets.datasets.entsoe_powerplants import EntsoePPDataset 
-from zen_creator.datasets.datasets.tyndp2024 import TYNDP2024Dataset
+from zen_creator import Model, MetaData, SourceInformation, EntsoePPDataset, TYNDP2024Dataset
 
 # 1) Load existing model
 model = Model.from_existing(Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden/europe_but_better_cleaned")) 
