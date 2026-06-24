@@ -16,7 +16,7 @@ def country_to_iso2(country_name):
         "Denmark": "DK", "Estonia": "EE", "Finland": "FI",
         "France": "FR", "Germany": "DE", "Greece": "EL",
         "Hungary": "HU", "Ireland": "IE", "Italy": "IT",
-        "Latvia": "LV", "Lithuania": "LT", "Luxembourg": "LU",
+        "Latvia": "LV", "Liechtenstein": "LI", "Lithuania": "LT", "Luxembourg": "LU",
         "Malta": "MT", "Netherlands": "NL", "Poland": "PL",
         "Portugal": "PT", "Romania": "RO", "Slovakia": "SK",
         "Slovenia": "SI", "Spain": "ES", "Sweden": "SE",
@@ -121,16 +121,16 @@ for carrier_name, powertrains in carrier_to_powertrains.items():
             
             # Format baseline values for demand.csv
             df_base_demand = pd.DataFrame({
-                "location": base_demand_series.index,
-                "demand": base_demand_series.values
-            }).set_index("location")
+                "node": base_demand_series.index,
+                "total_energy_demand": base_demand_series.values
+            }).set_index("node")
             
             # 4. Calculate fractional multipliers
             df_variation = df_wide.div(base_demand_series)
             df_variation = df_variation.fillna(0) 
             
             # 5. Assign both datasets into the ZEN-creator carrier
-            carrier.demand.set_data(df=df_base_demand, unit="GWh", source=thesis_source)
+            carrier.demand.set_data(df=df_base_demand, unit="GW", source=thesis_source)
             carrier.demand.yearly_variations_df = df_variation
             
             print(f"✅ Baseline DEMAND & DEMAND_YEARLY_VARIATION updated for: {carrier_name} (Combined: {powertrains}, Ref Year: {ref_year})")
