@@ -211,6 +211,19 @@ for tech_name in technology_list:
             )
             print(f"Combined Lower capacity limit set for {tech_name}")
 
+
+# ================================================
+# 4.4 Fix Units for Non-Energy Technologies (like Steel/Chemicals)
+# ================================================
+for tech_name, element in model.elements.items():
+    # Sync Power / Base Units
+    if hasattr(element, "capacity_lower_limit") and hasattr(element, "capacity_limit"):
+        element.capacity_lower_limit.unit = element.capacity_limit.unit
+        
+    # Sync Energy Units for Storage
+    if hasattr(element, "capacity_lower_limit_energy") and hasattr(element, "capacity_limit_energy"):
+        element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
+
 # ================================================
 # 4.5 Set realistic CAPEX for all vehicle technologies
 # ================================================
