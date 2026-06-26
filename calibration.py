@@ -1,7 +1,9 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from zen_creator import Model, MetaData, SourceInformation, EntsoePPDataset, TYNDP2024Dataset
+from zen_creator import Model, MetaData, SourceInformation
+from zen_creator.datasets.datasets.entsoe_powerplants import EntsoePPDataset
+from zen_creator.datasets.datasets.tyndp2024 import TYNDP2024Dataset
 
 # 1) Load existing model
 model = Model.from_existing(Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden/europe_but_better_cleaned")) 
@@ -101,7 +103,8 @@ for tech_name in fossil_techs:
 # ================================================
 # 4.3 Add capacity limits for 2025 (fixed to 0) and 2030 (TYNDP)
 # ================================================
-technology_list.append("photovoltaics")
+technology_list.append("photovoltaics")  # Add any other technologies you want to include
+technology_list.append("fuel_cell")
 
 for tech_name in technology_list:
     if tech_name not in model.elements:
@@ -109,15 +112,42 @@ for tech_name in technology_list:
         
     technology = model.elements[tech_name]
 
-    # --- 1. Fetch Datasets & Extract Unique Locations ---
-    entsoe_attr = entsoe_ds.get_capacity(technology)
-    spatial_indices = [idx for idx in entsoe_attr.df.index.names if idx in ["location", "node", "edge"]]
+    # --- 1. Fetch Datasets & Extract Unique Locations Safely ---
+    df_2025_base = pd.DataFrame()
+    df_2030_base = pd.DataFrame()
+    spatial_indices = ["node"]  # Default fallback
+    source_to_use = thesis_metadata
     
-    df_2025_base = entsoe_attr.df.copy().reset_index()
+    # Safely fetch 2025 data (ENTSO-E)
+    try:
+        entsoe_attr = entsoe_ds.get_capacity(technology)
+        valid_idx = [idx for idx in entsoe_attr.df.index.names if idx in ["location", "node", "edge"]]
+        if valid_idx:
+            spatial_indices = valid_idx
+        df_2025_base = entsoe_attr.df.copy().reset_index()
+        source_to_use = entsoe_attr.sources[0]
+    except ValueError as e:
+        if "Invalid index names" in str(e):
+            pass  # Dataset returned empty/broken index for this tech, treat as empty
+        else:
+            raise e
+
+    # Safely fetch 2030 data (TYNDP)
+    try:
+        tyndp_attr = tyndp_ds.get_capacity(technology, target_year=2030)
+        valid_idx = [idx for idx in tyndp_attr.df.index.names if idx in ["location", "node", "edge"]]
+        if valid_idx:
+            spatial_indices = valid_idx
+        df_2030_base = tyndp_attr.df.copy().reset_index()
+        source_to_use = tyndp_attr.sources[0]
+    except ValueError as e:
+        if "Invalid index names" in str(e):
+            pass
+        else:
+            raise e
+
+    # Extract locations based on whichever datasets successfully loaded
     locs_2025 = df_2025_base[spatial_indices].drop_duplicates() if not df_2025_base.empty else pd.DataFrame(columns=spatial_indices)
-    
-    tyndp_attr = tyndp_ds.get_capacity(technology, target_year=2030)
-    df_2030_base = tyndp_attr.df.copy().reset_index()
     locs_2030 = df_2030_base[spatial_indices].drop_duplicates() if not df_2030_base.empty else pd.DataFrame(columns=spatial_indices)
     
     # Master list of all known locations across both years
@@ -154,12 +184,10 @@ for tech_name in technology_list:
         # Combine
         df_max_combined = pd.concat([df_max_2025, df_max_2030], ignore_index=True)
         df_min_combined = pd.concat([df_min_2025, df_min_2030], ignore_index=True)
-        source_to_use = tyndp_attr.sources[0]
     else:
         # Fallback if no 2030 data exists
         df_max_combined = df_max_2025
         df_min_combined = df_min_2025
-        source_to_use = entsoe_attr.sources[0]
 
     # --- 4. Rebuild the Index & Set Data ---
     if not df_max_combined.empty:
@@ -182,18 +210,6 @@ for tech_name in technology_list:
                 source=source_to_use
             )
             print(f"Combined Lower capacity limit set for {tech_name}")
-
-# ================================================
-# 4.4 Fix Units for Non-Energy Technologies (like Steel/Chemicals)
-# ================================================
-for tech_name, element in model.elements.items():
-    # Sync Power / Base Units
-    if hasattr(element, "capacity_lower_limit") and hasattr(element, "capacity_limit"):
-        element.capacity_lower_limit.unit = element.capacity_limit.unit
-        
-    # Sync Energy Units for Storage
-    if hasattr(element, "capacity_lower_limit_energy") and hasattr(element, "capacity_limit_energy"):
-        element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
 
 # ================================================
 # 4.5 Set realistic CAPEX for all vehicle technologies
@@ -232,6 +248,42 @@ for tech_name, capex_val in realistic_capex.items():
 #         element.carbon_emissions_annual_limit.df = pd.DataFrame()
 #         print("-> Trajectory DataFrame cleared. Model will look to the default 'inf' value.")
 
+# # ================================================
+# # 4.7 Inject Year-Dependent Carbon Price from Shadow Prices
+# # ================================================
+# carbon_price_file = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/calculated_carbon_prices.csv")
+
+# # The element that holds the carbon price in your dataset (often "system" or the carrier "co2")
+# # UPDATE THIS NAME based on where carbon_price is defined in your specific ZEN-garden setup!
+# target_element_name = "system" 
+# parameter_name = "carbon_price" 
+
+# if carbon_price_file.exists():
+#     print(f"\n--- Injecting Dynamic Carbon Price for {target_element_name} ---")
+    
+#     # Load the prices we calculated in the other script
+#     df_carbon = pd.read_csv(carbon_price_file)
+    
+#     # Ensure the dataframe has 'year' as the index for ZEN-creator's time-series ingestion
+#     df_carbon.set_index("year", inplace=True)
+    
+#     if target_element_name in model.elements:
+#         element = model.elements[target_element_name]
+        
+#         if hasattr(element, parameter_name):
+#             attr = getattr(element, parameter_name)
+            
+#             # Apply the time-series DataFrame
+#             attr.set_data(
+#                 df=df_carbon,
+#                 unit="Euro/tCO2", # Update if your base units are different
+#                 source=thesis_metadata # Cite your thesis modifications
+#             )
+#             print(f"-> Successfully applied dynamic carbon prices: \n{df_carbon}")
+#         else:
+#             print(f"[Warning] {target_element_name} does not have the attribute {parameter_name}.")
+# else:
+#     print(f"[Skip] {carbon_price_file} not found. Run the extraction script first.")
 
 # 5) Validate and write files
 model.write()
