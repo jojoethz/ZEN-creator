@@ -196,27 +196,41 @@ for tech_name, element in model.elements.items():
         element.capacity_lower_limit_energy.unit = element.capacity_limit_energy.unit
 
 # ================================================
-# 4.5 Add small CAPEX for BEV and PHEV to prevent unnecessary capacity addition
+# 4.5 Set realistic CAPEX for all vehicle technologies
 # ================================================
-ev_techs = ["BEV", "PHEV electric part"] 
+realistic_capex = {
+    "gasoline_ICE": 275000.0,
+    "Diesel": 290000.0,
+    "CNG": 310000.0,
+    "LPG": 285000.0,
+    "GHEV": 320000.0,
+    "BEV": 350000.0,
+    "FCEV": 600000.0,
+    "PHEV gasoline part": 280000.0,
+    "PHEV electric part": 120000.0
+}
 
-for tech_name in ev_techs:
-    if tech_name not in model.elements:
-        continue
+for tech_name, capex_val in realistic_capex.items():
+    if tech_name in model.elements:
+        technology = model.elements[tech_name]
         
-    technology = model.elements[tech_name]
-    
-    # ZEN-garden models usually use one of these attributes for CAPEX
-    if hasattr(technology, "capex_specific_conversion"):
-        attr = technology.capex_specific_conversion
+        if hasattr(technology, "capex_specific_conversion"):
+            attr = technology.capex_specific_conversion
+            
+            # Explicitly overwrite the default value for attributes.json
+            attr.default_value = capex_val
+            print(f"Updated CAPEX for {tech_name} to {capex_val} Euro/MW")
+
+# # ================================================
+# # 4.6 Clear Carbon Emission Trajectory
+# # ================================================
+# for element_name, element in model.elements.items():
+#     if hasattr(element, "carbon_emissions_annual_limit"):
+#         print(f"\n--- Clearing Carbon Limit Trajectory for: '{element_name}' ---")
         
-        # Use a dummy float value. Depending on your units (e.g. M€/GW vs €/kW), 
-        # 0.01 or 1.0 is generally small enough not to impact real economics 
-        # but large enough to stop free over-investment.
-        small_capex_penalty = 0.01 
-        
-        attr.default_value = small_capex_penalty
-        print(f"Added small penalty CAPEX of {small_capex_penalty} to {tech_name} in attributes.json")
+#         # Empty the internal DataFrame so ZEN-creator doesn't export the old trajectory
+#         element.carbon_emissions_annual_limit.df = pd.DataFrame()
+#         print("-> Trajectory DataFrame cleared. Model will look to the default 'inf' value.")
 
 
 # 5) Validate and write files
@@ -229,16 +243,25 @@ print("\n--- Running Post-Write Actions ---")
 new_model_path = model.output_folder / model.name
 files_deleted = 0
 
+# Combined list of all files you want to purge from the output directory
+target_cleanup_files = [
+    "capacity_limit_yearly_variation.csv",
+    # "carbon_emissions_annual_limit.csv",
+    # "carbon_emissions_annual_limit_yearly_variation.csv"
+]
+
 if new_model_path.exists():
-    for file_path in new_model_path.rglob("capacity_limit_yearly_variation.csv"):
-        try:
-            file_path.unlink()  
-            print(f"Deleted: {file_path}")
-            files_deleted += 1
-        except Exception as e:
-            print(f"Could not delete {file_path}: {e}")
-            
+    for target_file in target_cleanup_files:
+        # rglob searches recursively for the specific filename
+        for file_path in new_model_path.rglob(target_file):
+            try:
+                file_path.unlink()  
+                print(f"Deleted: {file_path}")
+                files_deleted += 1
+            except Exception as e:
+                print(f"Could not delete {file_path}: {e}")
+                
 if files_deleted == 0:
-    print(f"No 'capacity_limit_yearly_variation.csv' files were found to delete in {model.name}.")
+    print(f"No targeted restriction CSV files were found to delete in {model.name}.")
 else:
-    print(f"Successfully deleted {files_deleted} file(s) from {model.name}.")
+    print(f"Successfully cleaned up {files_deleted} restriction file(s) from the output directory.")

@@ -161,18 +161,25 @@ for carrier_name in electric_carriers:
             time_col = df_written.columns[0]
             df_written['_year_tmp'] = pd.to_datetime(df_written[time_col]).dt.year
             
+            # Automatically detect the starting year
+            start_year = df_written['_year_tmp'].min()
+            
             # Group by parsed year and split out separate profiles
             for year, df_year in df_written.groupby('_year_tmp'):
                 df_year_out = df_year.drop(columns=['_year_tmp']).copy()
                 
-                # 🔄 NEW: Replace datetime strings with continuous natural numbers (0, 1, 2...)
+                # Replace datetime strings with continuous natural numbers (0, 1, 2...)
                 df_year_out[time_col] = range(len(df_year_out))
                 
-                # 🔄 NEW: Rename column header from the dynamic timestamp column name to exactly 'time'
+                # Rename column header from the dynamic timestamp column name to exactly 'time'
                 df_year_out.rename(columns={time_col: 'time'}, inplace=True)
                 
+                # Write the yearly file (e.g., demand_2030.csv)
                 year_file = carrier_dir / f"demand_{year}.csv"
-                
-                # Write using standard comma-separated format
                 df_year_out.to_csv(year_file, index=False)
                 print(f"   Successfully generated: {year_file.name}")
+                
+                # If this is the start year, overwrite the main demand.csv!
+                if year == start_year:
+                    df_year_out.to_csv(demand_file, index=False)
+                    print(f"   ✅ Overwrote massive demand.csv with ONLY the start year ({start_year})")
