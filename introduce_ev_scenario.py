@@ -107,7 +107,7 @@ for carrier_name, powertrains in carrier_to_powertrains.items():
             df_grouped = df_filtered.groupby(["year", "location"])["total_energy_demand"].sum().reset_index()
 
             # Fix: Reduce energy values by factor 1,000 for non-EV technologies
-            df_grouped["total_energy_demand"] = df_grouped["total_energy_demand"] / 1000
+            df_grouped["total_energy_demand"] = df_grouped["total_energy_demand"] / 8760
 
             # 1. Create Wide Format (Rows = Year, Columns = Location/Node)
             df_wide = df_grouped.pivot_table(index="year", columns="location", values="total_energy_demand")
