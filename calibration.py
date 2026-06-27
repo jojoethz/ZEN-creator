@@ -103,108 +103,84 @@ for tech_name in fossil_techs:
 # ================================================
 # 4.3 Add capacity limits for 2025 (fixed to 0) and 2030 (TYNDP)
 # ================================================
-technology_list.append("photovoltaics")  # Add any other technologies you want to include
+technology_list.append("photovoltaics")  
 technology_list.append("fuel_cell")
 
-# --- PREPARE FALLBACK LOCATIONS ---
-# Extract a master list of nodes from a highly available technology (like photovoltaics) 
-# to use as a geographical template if a technology is completely missing from both datasets.
-fallback_locs = pd.DataFrame()
-fallback_spatial_indices = ["node"]
-if "photovoltaics" in model.elements:
-    pv_attr = entsoe_ds.get_capacity(model.elements["photovoltaics"])
-    fallback_spatial_indices = [idx for idx in pv_attr.df.index.names if idx in ["location", "node", "edge"]]
-    fallback_locs = pv_attr.df.copy().reset_index()[fallback_spatial_indices].drop_duplicates()
+# --- PREPARE MASTER LOCATIONS ---
+# Extract the true master list of all nodes, explicitly ignoring transmission lines (edges).
+master_nodes = set()
+for name, element in model.elements.items():
+    if hasattr(element, "capacity_existing") and element.capacity_existing.df is not None:
+        df_idx = element.capacity_existing.df.index.names
+        
+        # STRICT FILTER: Only grab from elements that have 'node' or 'location', 
+        # and explicitly exclude anything that has 'edge' in its index.
+        if "edge" not in df_idx:
+            if "node" in df_idx:
+                master_nodes.update(element.capacity_existing.df.index.get_level_values("node").unique())
+            elif "location" in df_idx:
+                master_nodes.update(element.capacity_existing.df.index.get_level_values("location").unique())
 
+master_nodes_list = list(master_nodes)
+print(f"\n--- Detected {len(master_nodes_list)} pure countries/nodes. Applying 2025 zero-limits to ALL of them. ---")
 
 for tech_name in technology_list:
     if tech_name not in model.elements:
         continue
         
     technology = model.elements[tech_name]
-
-    # --- 1. Fetch Datasets Safely ---
-    df_2025_base = pd.DataFrame()
-    df_2030_base = pd.DataFrame()
-    spatial_indices = ["node"] 
     source_to_use = thesis_metadata
-    
-    # Safely fetch 2025 data (ENTSO-E)
-    try:
-        entsoe_attr = entsoe_ds.get_capacity(technology)
-        valid_idx = [idx for idx in entsoe_attr.df.index.names if idx in ["location", "node", "edge"]]
-        if valid_idx:
-            spatial_indices = valid_idx
-        df_2025_base = entsoe_attr.df.copy().reset_index()
-        source_to_use = entsoe_attr.sources[0]
-    except ValueError as e:
-        if "Invalid index names" not in str(e): raise e
 
-    # Safely fetch 2030 data (TYNDP)
+    # Determine the correct spatial index name for this specific technology ('node' or 'location')
+    spatial_index = "node" 
+    if hasattr(technology, "capacity_existing") and technology.capacity_existing.df is not None:
+        for col in ["node", "location"]:
+            if col in technology.capacity_existing.df.index.names:
+                spatial_index = col
+                break
+
+    # --- 1. Build 2025 Capacity Limits (All Zeros for ALL Countries) ---
+    df_max_2025 = pd.DataFrame({spatial_index: master_nodes_list})
+    df_max_2025["year"] = 2025
+    df_max_2025["capacity_limit"] = 0.0  
+    
+    df_min_2025 = pd.DataFrame({spatial_index: master_nodes_list})
+    df_min_2025["year"] = 2025
+    df_min_2025["capacity_lower_limit"] = 0.0 
+
+    # --- 2. Fetch 2030 Data (TYNDP) Safely ---
+    df_max_2030 = pd.DataFrame()
+    df_min_2030 = pd.DataFrame()
+    
     try:
         tyndp_attr = tyndp_ds.get_capacity(technology, target_year=2030)
-        valid_idx = [idx for idx in tyndp_attr.df.index.names if idx in ["location", "node", "edge"]]
-        if valid_idx:
-            spatial_indices = valid_idx
         df_2030_base = tyndp_attr.df.copy().reset_index()
         source_to_use = tyndp_attr.sources[0]
+        
+        if not df_2030_base.empty:
+            if "year" not in df_2030_base.columns:
+                df_2030_base["year"] = 2030
+                
+            # Upper Bounds (TYNDP * 1.3)
+            upper_bound_values = df_2030_base["capacity_existing"] * 1.3
+            upper_bound_values = upper_bound_values.where(df_2030_base["capacity_existing"] > 0, 0.1) 
+            df_max_2030 = df_2030_base[[spatial_index, "year"]].copy()
+            df_max_2030["capacity_limit"] = upper_bound_values
+
+            # Lower Bounds (70% of TYNDP)
+            lower_bound_values = df_2030_base["capacity_existing"] * 0.7
+            df_min_2030 = df_2030_base[[spatial_index, "year"]].copy()
+            df_min_2030["capacity_lower_limit"] = lower_bound_values
+            
     except ValueError as e:
         if "Invalid index names" not in str(e): raise e
 
-    # --- 2. Extract Unique Locations ---
-    locs_2025 = df_2025_base[spatial_indices].drop_duplicates() if not df_2025_base.empty else pd.DataFrame(columns=spatial_indices)
-    locs_2030 = df_2030_base[spatial_indices].drop_duplicates() if not df_2030_base.empty else pd.DataFrame(columns=spatial_indices)
-    
-    # Check if technology is completely missing from both datasets
-    if locs_2025.empty and locs_2030.empty:
-        print(f"-> '{tech_name}' missing in both ENTSO-E and TYNDP. Forcing capacity to 0 in all regions.")
-        all_locs = fallback_locs.copy()
-        spatial_indices = fallback_spatial_indices
-    else:
-        all_locs = pd.concat([locs_2025, locs_2030]).drop_duplicates()
-
-    # --- 3. Build 2025 Capacity Limits (All Zeros) ---
-    df_max_2025 = all_locs.copy()
-    df_min_2025 = all_locs.copy()
-    if not df_max_2025.empty:
-        df_max_2025["year"] = 2025
-        df_max_2025["capacity_limit"] = 0.0  # Forces delta_S = 0 in optimization
-        
-        df_min_2025["year"] = 2025
-        df_min_2025["capacity_lower_limit"] = 0.0 
-
-    # --- 4. Build 2030 Capacity Limits ---
-    if not df_2030_base.empty:
-        if "year" not in df_2030_base.columns:
-            df_2030_base["year"] = 2030
-            
-        # Upper Bounds (TYNDP * 1.3)
-        upper_bound_values = df_2030_base["capacity_existing"] * 1.3
-        upper_bound_values = upper_bound_values.where(df_2030_base["capacity_existing"] > 0, 0.1) 
-        df_max_2030 = df_2030_base[spatial_indices + ["year"]].copy()
-        df_max_2030["capacity_limit"] = upper_bound_values
-
-        # Lower Bounds (70% of TYNDP)
-        lower_bound_values = df_2030_base["capacity_existing"] * 0.7
-        df_min_2030 = df_2030_base[spatial_indices + ["year"]].copy()
-        df_min_2030["capacity_lower_limit"] = lower_bound_values
-    else:
-        # If no 2030 data exists, lock 2030 down to exactly 0 as well!
-        df_max_2030 = all_locs.copy()
-        df_max_2030["year"] = 2030
-        df_max_2030["capacity_limit"] = 0.0
-        
-        df_min_2030 = all_locs.copy()
-        df_min_2030["year"] = 2030
-        df_min_2030["capacity_lower_limit"] = 0.0
-
-    # Combine Years
+    # --- 3. Combine and Apply ---
     df_max_combined = pd.concat([df_max_2025, df_max_2030], ignore_index=True)
     df_min_combined = pd.concat([df_min_2025, df_min_2030], ignore_index=True)
 
-    # --- 5. Rebuild the Index & Set Data ---
     if not df_max_combined.empty:
-        index_cols = spatial_indices + ["year"]
+        index_cols = [spatial_index, "year"]
         df_max_combined.set_index(index_cols, inplace=True)
         df_min_combined.set_index(index_cols, inplace=True)
 

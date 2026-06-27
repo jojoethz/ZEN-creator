@@ -113,8 +113,8 @@ for carrier_name, powertrains in carrier_to_powertrains.items():
             df_wide = df_grouped.pivot_table(index="year", columns="location", values="total_energy_demand")
             df_wide.columns.name = None 
             
-            # 2. Determine reference year (2038)
-            ref_year = 2038 if 2038 in df_wide.index else df_wide.index[0]
+            # 2. Determine reference year (2021)
+            ref_year = 2021 if 2021 in df_wide.index else df_wide.index[0]
             
             # 3. Extract baseline values for the reference year
             base_demand_series = df_wide.loc[ref_year]
