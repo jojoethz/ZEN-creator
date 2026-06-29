@@ -106,7 +106,7 @@ for carrier_name, powertrains in carrier_to_powertrains.items():
             # Group by year and location, then SUM their energy demand values together
             df_grouped = df_filtered.groupby(["year", "location"])["total_energy_demand"].sum().reset_index()
 
-            # Fix: Reduce energy values by factor 1,000 for non-EV technologies
+            # Fix: Convert GWh to GW by dividing by 8760 hours in a year
             df_grouped["total_energy_demand"] = df_grouped["total_energy_demand"] / 8760
 
             # 1. Create Wide Format (Rows = Year, Columns = Location/Node)
