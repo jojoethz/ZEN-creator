@@ -25,6 +25,8 @@ thesis_metadata = MetaData(
     url=""
 )
 
+thesis_source = SourceInformation(description="Manual modifications for Master Thesis", metadata=thesis_metadata)
+
 # 4) Change parameters
 # ================================================
 # 4.1 Only for technologies in technology_list: set capacity_existing based on new dataset
@@ -239,53 +241,44 @@ for tech_name, capex_val in realistic_capex.items():
             attr.default_value = capex_val
             print(f"Updated CAPEX for {tech_name} to {capex_val} Euro/MW")
 
-# # ================================================
-# # 4.6 Clear Carbon Emission Trajectory
-# # ================================================
-# for element_name, element in model.elements.items():
-#     if hasattr(element, "carbon_emissions_annual_limit"):
-#         print(f"\n--- Clearing Carbon Limit Trajectory for: '{element_name}' ---")
+# ================================================
+# 4.6 Clear Carbon Emission Trajectory
+# ================================================
+for element_name, element in model.elements.items():
+    if hasattr(element, "carbon_emissions_annual_limit"):
+        print(f"\n--- Clearing Carbon Limit Trajectory for: '{element_name}' ---")
         
-#         # Empty the internal DataFrame so ZEN-creator doesn't export the old trajectory
-#         element.carbon_emissions_annual_limit.df = pd.DataFrame()
-#         print("-> Trajectory DataFrame cleared. Model will look to the default 'inf' value.")
+        # Empty the internal DataFrame so ZEN-creator doesn't export the old trajectory
+        element.carbon_emissions_annual_limit.df = pd.DataFrame()
+        print("-> Trajectory DataFrame cleared. Model will look to the default 'inf' value.")
 
-# # ================================================
-# # 4.7 Inject Year-Dependent Carbon Price from Shadow Prices
-# # ================================================
-# carbon_price_file = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/calculated_carbon_prices.csv")
+# ================================================
+# 4.7 Inject Year-Dependent Carbon Price from Shadow Prices
+# ================================================
+carbon_price_file = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/calculated_carbon_prices.csv")
+parameter_name = "price_carbon_emissions" 
 
-# # The element that holds the carbon price in your dataset (often "system" or the carrier "co2")
-# # UPDATE THIS NAME based on where carbon_price is defined in your specific ZEN-garden setup!
-# target_element_name = "system" 
-# parameter_name = "carbon_price" 
-
-# if carbon_price_file.exists():
-#     print(f"\n--- Injecting Dynamic Carbon Price for {target_element_name} ---")
+if carbon_price_file.exists():
+    print("\n--- Injecting Dynamic Carbon Price for the Energy System ---")
     
-#     # Load the prices we calculated in the other script
-#     df_carbon = pd.read_csv(carbon_price_file)
+    # Load the prices we calculated in the other script
+    df_carbon = pd.read_csv(carbon_price_file)
     
-#     # Ensure the dataframe has 'year' as the index for ZEN-creator's time-series ingestion
-#     df_carbon.set_index("year", inplace=True)
+    # Ensure the dataframe has 'year' as the index for ZEN-creator's time-series ingestion
+    df_carbon.set_index("year", inplace=True)
     
-#     if target_element_name in model.elements:
-#         element = model.elements[target_element_name]
-        
-#         if hasattr(element, parameter_name):
-#             attr = getattr(element, parameter_name)
-            
-#             # Apply the time-series DataFrame
-#             attr.set_data(
-#                 df=df_carbon,
-#                 unit="Euro/tCO2", # Update if your base units are different
-#                 source=thesis_metadata # Cite your thesis modifications
-#             )
-#             print(f"-> Successfully applied dynamic carbon prices: \n{df_carbon}")
-#         else:
-#             print(f"[Warning] {target_element_name} does not have the attribute {parameter_name}.")
-# else:
-#     print(f"[Skip] {carbon_price_file} not found. Run the extraction script first.")
+    # In ZEN-creator, the energy_system is usually a direct attribute of the model
+    system_element = model.energy_system
+    
+    attr = getattr(system_element, parameter_name)
+    
+    # Apply the time-series DataFrame
+    attr.set_data(
+        df=df_carbon,
+        unit="Euro/tons", # Matched to the unit in your attributes.json
+        source=thesis_source 
+    )
+    print(f"-> Successfully applied dynamic carbon prices: \n{df_carbon}")
 
 # 5) Validate and write files
 model.write()
@@ -300,8 +293,8 @@ files_deleted = 0
 # Combined list of all files you want to purge from the output directory
 target_cleanup_files = [
     "capacity_limit_yearly_variation.csv",
-    # "carbon_emissions_annual_limit.csv",
-    # "carbon_emissions_annual_limit_yearly_variation.csv"
+    "carbon_emissions_annual_limit.csv",
+    "carbon_emissions_annual_limit_yearly_variation.csv"
 ]
 
 if new_model_path.exists():
