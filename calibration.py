@@ -27,50 +27,112 @@ thesis_metadata = MetaData(
 
 thesis_source = SourceInformation(description="Manual modifications for Master Thesis", metadata=thesis_metadata)
 
-# 4) Change parameters
 # ================================================
-# 4.1 Only for technologies in technology_list: set capacity_existing based on new dataset
+# 4.1 Set capacity_existing based on datasets (ENTSO-E & TYNDP 2022 for PV)
 # ================================================
 technology_list = ["battery", "biomass_plant", "hard_coal_plant", "lignite_coal_plant", "natural_gas_turbine", "nuclear", "oil_plant", 
-                #"photovoltaics", 
+                "photovoltaics",  # <-- PV is now handled here!
                 "reservoir_hydro", 
                 "run-of-river_hydro", 
                 "waste_plant", 
                 "wind_offshore", 
                 "wind_onshore", 
                 "pumped_hydro"]
+
+# Path to TYNDP 2022 for PV data
+tyndp2022_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/datasets/220310_Updated_Electricity_Modelling_Results.xlsx")
+
 for tech_name in technology_list:
     if tech_name not in model.elements:
         continue
     technology = model.elements[tech_name]
 
-    # Temporäres Attribut mit dem korrekten DataFrame erzeugen
-    temp_attr = entsoe_ds.get_capacity(technology)
-    
-    technology.capacity_existing.set_data(
-        df=temp_attr.df,           # the fully prepared MultiIndex DataFrame
-        unit=temp_attr.unit,
-        source=temp_attr.sources[0]
-    )
-
-    # Automated synchronization for storage (pumped storage & batteries)
-    if hasattr(technology, "capacity_existing_energy"):
-        # Select specific ratio
-        if tech_name == "battery":
-            ep_ratio = 2.0  # example: 2 hours of storage for batteries
-        else:
-            ep_ratio = 6.0  # Standard 6 hours for hydro storage, adjust as needed
+    # ----------------------------------------------------
+    # SPECIAL EXCEPTION: Load PV from TYNDP 2022
+    # ----------------------------------------------------
+    if tech_name == "photovoltaics" and tyndp2022_path.exists():
+        print(f"-> Extracting 2025 existing capacity for {tech_name} from TYNDP 2022...")
         
-        df_energy = pd.DataFrame({
-            "capacity_existing_energy": temp_attr.df["capacity_existing"] * ep_ratio
-        })
+        # Load the specific sheet containing capacity data and clean columns
+        df_22 = pd.read_excel(tyndp2022_path, sheet_name="Capacity_dispatch")
+        df_22.columns = df_22.columns.str.strip()
         
-        technology.capacity_existing_energy.set_data(
-            df=df_energy,
-            unit="GWh",
+        # Apply strict filters based on the reference snippet
+        df_pv = df_22[
+            (df_22["Scenario"] == "National Trends") &
+            (df_22["Year"] == 2025) &
+            (df_22["Climate Year"] == "CY 2009") &
+            (df_22["Parameter"] == "Capacity (MW)") &
+            (df_22["Fuel"].astype(str).str.contains("Solar", case=False))
+        ].copy()
+        
+        # Extract country from Node (first 2 characters) and fix GR -> EL
+        df_pv["Country"] = df_pv["Node"].astype(str).str[:2].replace({"GR": "EL"})
+        
+        # Group by Country and sum the values to aggregate regional nodes into national totals
+        df_pv_grouped = df_pv.groupby("Country")["Value"].sum().reset_index()
+        
+        # Convert MW to GW and use 'year_construction' instead of 'year'
+        df_pv_grouped["capacity_existing"] = df_pv_grouped["Value"] / 1000.0
+        df_pv_grouped["year_construction"] = 2024
+        
+        # Determine correct spatial index (usually "node" or "location")
+        spatial_idx = "node"
+        if hasattr(technology, "capacity_existing") and technology.capacity_existing.df is not None:
+            if "location" in technology.capacity_existing.df.index.names:
+                spatial_idx = "location"
+                
+        # Rename country column to match ZEN-garden's spatial index
+        df_pv_grouped.rename(columns={"Country": spatial_idx}, inplace=True)
+        
+        # Format the dataframe exactly how ZEN-creator expects it (MultiIndex)
+        df_capacity = df_pv_grouped[[spatial_idx, "year_construction", "capacity_existing"]].set_index([spatial_idx, "year_construction"])
+        
+        technology.capacity_existing.set_data(
+            df=df_capacity,
+            unit="GW",
+            source=thesis_metadata
+        )
+        print(f"Fixed existing capacity set for {tech_name} using TYNDP 2022 (CY 2009, National Trends).")
+        
+    # ----------------------------------------------------
+    # Load other technologies from ENTSO-E
+    # ----------------------------------------------------
+    else:
+        try:
+            temp_attr = entsoe_ds.get_capacity(technology)
+        except ValueError as e:
+            # Safely catch completely empty datasets
+            if "Invalid index names" in str(e):
+                print(f"-> No ENTSO-E data found for '{tech_name}'. Setting capacity to 0.")
+                technology.capacity_existing.df = pd.DataFrame()
+                continue
+            else:
+                raise e
+        
+        technology.capacity_existing.set_data(
+            df=temp_attr.df,          
+            unit=temp_attr.unit,
             source=temp_attr.sources[0]
         )
-        print(f"Synchronized: {tech_name} with {ep_ratio}")
+
+        # Automated synchronization for storage (pumped storage & batteries)
+        if hasattr(technology, "capacity_existing_energy"):
+            if tech_name == "battery":
+                ep_ratio = 2.0  
+            else:
+                ep_ratio = 6.0  
+            
+            df_energy = pd.DataFrame({
+                "capacity_existing_energy": temp_attr.df["capacity_existing"] * ep_ratio
+            })
+            
+            technology.capacity_existing_energy.set_data(
+                df=df_energy,
+                unit="GWh",
+                source=temp_attr.sources[0]
+            )
+            print(f"Synchronized: {tech_name} with {ep_ratio}")
 
 
 # ================================================
