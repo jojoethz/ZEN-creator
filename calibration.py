@@ -91,10 +91,10 @@ for tech_name in technology_list:
         technology.capacity_existing.set_data(
             df=df_capacity,
             unit="GW",
-            source=thesis_metadata
+            source=thesis_source
         )
         print(f"Fixed existing capacity set for {tech_name} using TYNDP 2022 (CY 2009, National Trends).")
-        
+
     # ----------------------------------------------------
     # Load other technologies from ENTSO-E
     # ----------------------------------------------------
@@ -193,7 +193,7 @@ for tech_name in technology_list:
         continue
         
     technology = model.elements[tech_name]
-    source_to_use = thesis_metadata
+    source_to_use = thesis_source
 
     # Determine the correct spatial index name for this specific technology ('node' or 'location')
     spatial_index = "node" 
