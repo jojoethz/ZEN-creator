@@ -64,7 +64,7 @@ carrier_to_powertrains = {
 scenario_files = list(scenarios_dir.glob("*_yearly_total.csv"))
 
 if not scenario_files:
-    print(f"❌ No scenario files found in {scenarios_dir}. Check your paths!")
+    print(f"No scenario files found in {scenarios_dir}. Check your paths!")
 
 for annual_totals_path in scenario_files:
     # Extract the scenario name (e.g., "all_100_except_Poland_90")
@@ -73,7 +73,7 @@ for annual_totals_path in scenario_files:
     # Construct the corresponding hourly profile path
     hourly_profile_path = scenarios_dir / f"{scenario_name}_hourly_profiles.csv"
     
-    print(f"\n{'='*60}\n🚀 PROCESSING SCENARIO: {scenario_name}\n{'='*60}")
+    print(f"\n{'='*60}\nPROCESSING SCENARIO: {scenario_name}\n{'='*60}")
     
     # Load a fresh copy of the base model for each scenario
     model = Model.from_existing(base_model_path) 
@@ -93,7 +93,7 @@ for annual_totals_path in scenario_files:
             
         carrier = model.elements[carrier_name]
         
-        # ⚡ BRANCH 1: ELECTRIC VEHICLES (Update Hourly Profiles)
+        # BRANCH 1: ELECTRIC VEHICLES (Update Hourly Profiles)
         if carrier_name in electric_carriers:
             df_filtered = df_ev_hourly[df_ev_hourly["powertrain"].isin(powertrains)].copy()
             
@@ -107,9 +107,9 @@ for annual_totals_path in scenario_files:
                 df_wide.columns.name = None
                 
                 carrier.demand.set_data(df=df_wide, unit="GW", source=thesis_source)
-                print(f"   ✅ Hourly DEMAND profile updated for: {carrier_name}")
+                print(f"Hourly DEMAND profile updated for: {carrier_name}")
 
-        # 🛢️ BRANCH 2: FOSSIL FUELS & HYDROGEN
+        # BRANCH 2: FOSSIL FUELS & HYDROGEN
         else:
             df_filtered = df_annual_totals[df_annual_totals["powertrain"].isin(powertrains)].copy()
             
@@ -136,7 +136,7 @@ for annual_totals_path in scenario_files:
                 carrier.demand.set_data(df=df_base_demand, unit="GW", source=thesis_source)
                 carrier.demand.yearly_variations_df = df_variation
                 
-                print(f"   ✅ Baseline DEMAND updated for: {carrier_name} (Ref Year: {ref_year})")
+                print(f" Baseline DEMAND updated for: {carrier_name} (Ref Year: {ref_year})")
 
     # ================================================
     # 4) Validate and write files for current scenario
@@ -144,7 +144,7 @@ for annual_totals_path in scenario_files:
     print(f"\n--- Writing the Model: {model.name} ---")
     model.write()
 
-    # 🌟 POST-PROCESSING: Generate yearly demand files
+    # POST-PROCESSING: Generate yearly demand files
     print("\n--- Running Post-Processing for Electric Carriers ---")
     output_path = model.output_folder / model.name
 
@@ -171,6 +171,6 @@ for annual_totals_path in scenario_files:
                     
                     if year == start_year:
                         df_year_out.to_csv(demand_file, index=False)
-                print(f"   ✅ Split profiles and overwrote demand.csv for {carrier_name}")
+                print(f"Split profiles and overwrote demand.csv for {carrier_name}")
 
-print("\n🎉 ALL SCENARIOS PROCESSED SUCCESSFULLY!")
+print("\n ALL SCENARIOS PROCESSED SUCCESSFULLY!")
