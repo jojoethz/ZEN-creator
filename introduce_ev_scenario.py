@@ -29,24 +29,15 @@ def country_to_iso2(country_name):
     return iso2_mapping.get(country_name.strip(), country_name.strip())
 
 # ================================================
-# 1) Load existing model & Set up output
+# 1) Setup Paths & Configuration
 # ================================================
 base_model_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden/Europe_calibrated")
-model = Model.from_existing(base_model_path) 
+output_base_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
 
-model.output_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
-model.name = "Europe_calibrated_with_Updated_EVs"
-
-# ================================================
-# 2) Load datasets (Input files use ; and ,)
-# ================================================
-hourly_profile_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ev-grid-impacts-eu/Outputs/charging demand by country/EV_charging_profile_hourly_detailed.csv")
-annual_totals_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ev-grid-impacts-eu/Outputs/charging demand by country/yearly_total_energy_demand_by_country.csv")
+# Directory where your 6 scenarios were saved
+scenarios_dir = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ev-grid-impacts-eu/Outputs/scenarios")
 
 electric_carriers = ["bev_electricity", "phev_electricity"]
-
-df_ev_hourly = pd.read_csv(hourly_profile_path, delimiter=";", decimal=",", low_memory=False)
-df_annual_totals = pd.read_csv(annual_totals_path, delimiter=";", decimal=",")
 
 thesis_metadata = MetaData(
     name="thesis_modifications", author=["Joel"], publication_year=2026,
@@ -54,9 +45,6 @@ thesis_metadata = MetaData(
 )
 thesis_source = SourceInformation(description="Manual modifications for Master Thesis", metadata=thesis_metadata)
 
-# ================================================
-# 3) Group Powertrains by Carrier (Prevents Overwriting)
-# ================================================
 carrier_to_powertrains = {
     "bev_electricity": ["BEV"],
     "phev_electricity": ["G-PHEV electric part"],
@@ -70,116 +58,119 @@ carrier_to_powertrains = {
 }
 
 # ================================================
-# 4) Change parameters
+# 2) Loop Through All Scenarios
 # ================================================
-for carrier_name, powertrains in carrier_to_powertrains.items():
-    if carrier_name not in model.elements:
-        continue
-        
-    carrier = model.elements[carrier_name]
+# Find all the yearly total files to identify the scenario names dynamically
+scenario_files = list(scenarios_dir.glob("*_yearly_total.csv"))
+
+if not scenario_files:
+    print(f"❌ No scenario files found in {scenarios_dir}. Check your paths!")
+
+for annual_totals_path in scenario_files:
+    # Extract the scenario name (e.g., "all_100_except_Poland_90")
+    scenario_name = annual_totals_path.name.replace("_yearly_total.csv", "")
     
-    # ⚡ BRANCH 1: ELECTRIC VEHICLES (Update Hourly Profiles)
-    if carrier_name in electric_carriers:
-        df_filtered = df_ev_hourly[df_ev_hourly["powertrain"].isin(powertrains)].copy()
-        
-        if not df_filtered.empty:
-            df_filtered.rename(columns={"geo country": "location", "charging_demand_GWh": "demand"}, inplace=True) 
-            df_filtered["location"] = df_filtered["location"].apply(country_to_iso2)
-
-            # Sum up demands if multiple powertrains match this carrier
-            df_grouped = df_filtered.groupby(["time", "location"])["demand"].sum().reset_index()
-
-            df_wide = df_grouped.pivot_table(index="time", columns="location", values="demand")
-            df_wide.columns.name = None
-            
-            # Pass full wide format back to zen_creator
-            carrier.demand.set_data(df=df_wide, unit="GW", source=thesis_source)
-            print(f"✅ Hourly DEMAND profile updated for: {carrier_name} (Combined: {powertrains})")
-
-    # 🛢️ BRANCH 2: FOSSIL FUELS & HYDROGEN (Update Absolute Demand + Yearly Fractions)
-    else:
-        df_filtered = df_annual_totals[df_annual_totals["powertrain"].isin(powertrains)].copy()
-        
-        if not df_filtered.empty:
-            df_filtered["location"] = df_filtered["geo country"].apply(country_to_iso2)
-
-            # Group by year and location, then SUM their energy demand values together
-            df_grouped = df_filtered.groupby(["year", "location"])["total_energy_demand"].sum().reset_index()
-
-            # Fix: Convert GWh to GW by dividing by 8760 hours in a year
-            df_grouped["total_energy_demand"] = df_grouped["total_energy_demand"] / 8760
-
-            # 1. Create Wide Format (Rows = Year, Columns = Location/Node)
-            df_wide = df_grouped.pivot_table(index="year", columns="location", values="total_energy_demand")
-            df_wide.columns.name = None 
-            
-            # 2. Determine reference year (2021)
-            ref_year = 2021 if 2021 in df_wide.index else df_wide.index[0]
-            
-            # 3. Extract baseline values for the reference year
-            base_demand_series = df_wide.loc[ref_year]
-            
-            # Format baseline values for demand.csv
-            df_base_demand = pd.DataFrame({
-                "node": base_demand_series.index,
-                "total_energy_demand": base_demand_series.values
-            }).set_index("node")
-            
-            # 4. Calculate fractional multipliers
-            df_variation = df_wide.div(base_demand_series)
-            df_variation = df_variation.fillna(0) 
-            
-            # 5. Assign both datasets into the ZEN-creator carrier
-            carrier.demand.set_data(df=df_base_demand, unit="GW", source=thesis_source)
-            carrier.demand.yearly_variations_df = df_variation
-            
-            print(f"✅ Baseline DEMAND & DEMAND_YEARLY_VARIATION updated for: {carrier_name} (Combined: {powertrains}, Ref Year: {ref_year})")
-
-# ================================================
-# 5) Validate and write files
-# ================================================
-print("\n--- Writing the Model ---")
-model.write()
-
-# 🌟 POST-PROCESSING: Generate the necessary yearly demand files (demand_2025.csv, etc.)
-print("\n--- Running Post-Processing for Electric Carrier Yearly Profiles ---")
-output_path = model.output_folder / model.name
-
-for carrier_name in electric_carriers:
-    # Locate the element folders dynamically
-    carrier_dirs = list(output_path.glob(f"**/carriers/{carrier_name}")) or list(output_path.glob(f"**/{carrier_name}"))
+    # Construct the corresponding hourly profile path
+    hourly_profile_path = scenarios_dir / f"{scenario_name}_hourly_profiles.csv"
     
-    for carrier_dir in carrier_dirs:
-        demand_file = carrier_dir / "demand.csv"
-        if demand_file.exists():
-            print(f"Processing compiled demand file for {carrier_name} at: {demand_file}")
+    print(f"\n{'='*60}\n🚀 PROCESSING SCENARIO: {scenario_name}\n{'='*60}")
+    
+    # Load a fresh copy of the base model for each scenario
+    model = Model.from_existing(base_model_path) 
+    model.output_folder = output_base_folder
+    model.name = f"Europe_calibrated_{scenario_name}"
+
+    # Load datasets (Updated to read standard comma-separated format)
+    df_ev_hourly = pd.read_csv(hourly_profile_path, low_memory=False)
+    df_annual_totals = pd.read_csv(annual_totals_path)
+
+    # ================================================
+    # 3) Change parameters for current scenario
+    # ================================================
+    for carrier_name, powertrains in carrier_to_powertrains.items():
+        if carrier_name not in model.elements:
+            continue
             
-            # Read standard comma-separated format outputted by ZEN-creator
-            df_written = pd.read_csv(demand_file)
+        carrier = model.elements[carrier_name]
+        
+        # ⚡ BRANCH 1: ELECTRIC VEHICLES (Update Hourly Profiles)
+        if carrier_name in electric_carriers:
+            df_filtered = df_ev_hourly[df_ev_hourly["powertrain"].isin(powertrains)].copy()
             
-            # Track the first column containing the timestamps
-            time_col = df_written.columns[0]
-            df_written['_year_tmp'] = pd.to_datetime(df_written[time_col]).dt.year
+            if not df_filtered.empty:
+                df_filtered.rename(columns={"geo country": "location", "charging_demand_GWh": "demand"}, inplace=True) 
+                df_filtered["location"] = df_filtered["location"].apply(country_to_iso2)
+
+                df_grouped = df_filtered.groupby(["time", "location"])["demand"].sum().reset_index()
+
+                df_wide = df_grouped.pivot_table(index="time", columns="location", values="demand")
+                df_wide.columns.name = None
+                
+                carrier.demand.set_data(df=df_wide, unit="GW", source=thesis_source)
+                print(f"   ✅ Hourly DEMAND profile updated for: {carrier_name}")
+
+        # 🛢️ BRANCH 2: FOSSIL FUELS & HYDROGEN
+        else:
+            df_filtered = df_annual_totals[df_annual_totals["powertrain"].isin(powertrains)].copy()
             
-            # Automatically detect the starting year
-            start_year = df_written['_year_tmp'].min()
-            
-            # Group by parsed year and split out separate profiles
-            for year, df_year in df_written.groupby('_year_tmp'):
-                df_year_out = df_year.drop(columns=['_year_tmp']).copy()
+            if not df_filtered.empty:
+                df_filtered["location"] = df_filtered["geo country"].apply(country_to_iso2)
+
+                df_grouped = df_filtered.groupby(["year", "location"])["total_energy_demand"].sum().reset_index()
+                df_grouped["total_energy_demand"] = df_grouped["total_energy_demand"] / 8760
+
+                df_wide = df_grouped.pivot_table(index="year", columns="location", values="total_energy_demand")
+                df_wide.columns.name = None 
                 
-                # Replace datetime strings with continuous natural numbers (0, 1, 2...)
-                df_year_out[time_col] = range(len(df_year_out))
+                ref_year = 2021 if 2021 in df_wide.index else df_wide.index[0]
+                base_demand_series = df_wide.loc[ref_year]
                 
-                # Rename column header from the dynamic timestamp column name to exactly 'time'
-                df_year_out.rename(columns={time_col: 'time'}, inplace=True)
+                df_base_demand = pd.DataFrame({
+                    "node": base_demand_series.index,
+                    "total_energy_demand": base_demand_series.values
+                }).set_index("node")
                 
-                # Write the yearly file (e.g., demand_2030.csv)
-                year_file = carrier_dir / f"demand_{year}.csv"
-                df_year_out.to_csv(year_file, index=False)
-                print(f"   Successfully generated: {year_file.name}")
+                df_variation = df_wide.div(base_demand_series)
+                df_variation = df_variation.fillna(0) 
                 
-                # If this is the start year, overwrite the main demand.csv!
-                if year == start_year:
-                    df_year_out.to_csv(demand_file, index=False)
-                    print(f"   ✅ Overwrote massive demand.csv with ONLY the start year ({start_year})")
+                carrier.demand.set_data(df=df_base_demand, unit="GW", source=thesis_source)
+                carrier.demand.yearly_variations_df = df_variation
+                
+                print(f"   ✅ Baseline DEMAND updated for: {carrier_name} (Ref Year: {ref_year})")
+
+    # ================================================
+    # 4) Validate and write files for current scenario
+    # ================================================
+    print(f"\n--- Writing the Model: {model.name} ---")
+    model.write()
+
+    # 🌟 POST-PROCESSING: Generate yearly demand files
+    print("\n--- Running Post-Processing for Electric Carriers ---")
+    output_path = model.output_folder / model.name
+
+    for carrier_name in electric_carriers:
+        carrier_dirs = list(output_path.glob(f"**/carriers/{carrier_name}")) or list(output_path.glob(f"**/{carrier_name}"))
+        
+        for carrier_dir in carrier_dirs:
+            demand_file = carrier_dir / "demand.csv"
+            if demand_file.exists():
+                
+                df_written = pd.read_csv(demand_file)
+                time_col = df_written.columns[0]
+                df_written['_year_tmp'] = pd.to_datetime(df_written[time_col]).dt.year
+                
+                start_year = df_written['_year_tmp'].min()
+                
+                for year, df_year in df_written.groupby('_year_tmp'):
+                    df_year_out = df_year.drop(columns=['_year_tmp']).copy()
+                    df_year_out[time_col] = range(len(df_year_out))
+                    df_year_out.rename(columns={time_col: 'time'}, inplace=True)
+                    
+                    year_file = carrier_dir / f"demand_{year}.csv"
+                    df_year_out.to_csv(year_file, index=False)
+                    
+                    if year == start_year:
+                        df_year_out.to_csv(demand_file, index=False)
+                print(f"   ✅ Split profiles and overwrote demand.csv for {carrier_name}")
+
+print("\n🎉 ALL SCENARIOS PROCESSED SUCCESSFULLY!")
