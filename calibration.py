@@ -303,16 +303,21 @@ for tech_name, capex_val in realistic_capex.items():
             attr.default_value = capex_val
             print(f"Updated CAPEX for {tech_name} to {capex_val} Euro/MW")
 
-# ================================================
-# 4.6 Clear Carbon Emission Trajectory
-# ================================================
-for element_name, element in model.elements.items():
-    if hasattr(element, "carbon_emissions_annual_limit"):
-        print(f"\n--- Clearing Carbon Limit Trajectory for: '{element_name}' ---")
-        
-        # Empty the internal DataFrame so ZEN-creator doesn't export the old trajectory
-        element.carbon_emissions_annual_limit.df = pd.DataFrame()
-        print("-> Trajectory DataFrame cleared. Model will look to the default 'inf' value.")
+
+# # ================================================
+# # 4.6 Inject Cumulative Carbon Budget (2025 - 2050)
+# # ================================================
+# budget_gt = 29.016 #triangle area under the 2025-2050 trajectory from the original model (in Gt)
+
+# system_element = model.energy_system
+
+# if hasattr(system_element, "carbon_emissions_budget"):
+#     # Apply via set_data to ensure it writes to the energy_system attributes.json
+#     system_element.carbon_emissions_budget.set_data(
+#         default_value=float(budget_gt),
+#         source=thesis_source
+#     )
+#     print(f"-> Budget successfully updated to {budget_gt} tons in the energy_system.")
 
 # ================================================
 # 4.7 Inject Year-Dependent Carbon Price from Shadow Prices
