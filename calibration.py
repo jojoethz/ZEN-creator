@@ -245,6 +245,9 @@ for tech_name in technology_list:
 
     if not df_max_combined.empty:
         index_cols = [spatial_index, "year"]
+        df_max_combined = df_max_combined.groupby(index_cols, as_index=False).sum()
+        df_min_combined = df_min_combined.groupby(index_cols, as_index=False).sum()
+
         df_max_combined.set_index(index_cols, inplace=True)
         df_min_combined.set_index(index_cols, inplace=True)
 
