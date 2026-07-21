@@ -31,11 +31,11 @@ def country_to_iso2(country_name):
 # ================================================
 # 1) Load existing model & Set up output
 # ================================================
-base_model_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden/Europe_calibrated")
+base_model_path = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden/Europe_calibrated_carbon_budget")
 model = Model.from_existing(base_model_path) 
 
 model.output_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
-model.name = "Europe_calibrated_with_Updated_EVs"
+model.name = "Europe_calibrated_with_Updated_EVs_carbon_budget"
 
 # ================================================
 # 2) Load datasets (Input files use ; and ,)

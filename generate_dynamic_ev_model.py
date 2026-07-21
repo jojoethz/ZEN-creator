@@ -8,17 +8,16 @@ from pathlib import Path
 # ============================================================
 BASE_ZEN_PATH = Path(r"C:\Users\joell\Documents\ETH\Master\master_thesis\ZEN-garden")
 
-model_100_path = BASE_ZEN_PATH / "Europe_calibrated"
-model_90_path = BASE_ZEN_PATH / "Europe_calibrated_with_Updated_EVs"
-hybrid_model_path = BASE_ZEN_PATH / "Europe_calibrated_dynamic_adoption"
-
-print("🚀 Starting Pure File-Based Model Merge & Registry Patch...")
+model_100_path = BASE_ZEN_PATH / "Europe_calibrated_carbon_budget"
+model_90_path = BASE_ZEN_PATH / "Europe_calibrated_with_Updated_EVs_carbon_budget"
+hybrid_model_path = BASE_ZEN_PATH / "Europe_calibrated_dynamic_adoption_carbon_budget"
+print("Starting Pure File-Based Model Merge & Registry Patch...")
 
 # ============================================================
 # 2) RE-CREATE THE HYBRID DESTINATION FOLDER
 # ============================================================
 if hybrid_model_path.exists():
-    print(f"🧹 Removing existing hybrid folder: {hybrid_model_path.name}...")
+    print(f"Removing existing hybrid folder: {hybrid_model_path.name}...")
     shutil.rmtree(hybrid_model_path)
 
 print(f"Copying baseline structure from {model_100_path.name}...")

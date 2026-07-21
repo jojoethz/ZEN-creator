@@ -10,7 +10,7 @@ model = Model.from_existing(Path("C:/Users/joell/Documents/ETH/Master/master_the
 
 # 2) Modify model
 model.output_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
-model.name = "Europe_calibrated"
+model.name = "Europe_calibrated_carbon_budget"
 
 # 3) Load new dataset
 entsoe_ds = EntsoePPDataset(source_path=Path("C:/Users/joell/Documents/ETH/Master/master_thesis/datasets"))
@@ -308,7 +308,7 @@ for tech_name, capex_val in realistic_capex.items():
 
 
 # # ================================================
-# # 4.6 Inject Cumulative Carbon Budget (2025 - 2050)
+# # 4.6 Inject Cumulative Carbon Budget (2025 - 2050) and Net-Zero Target
 # # ================================================
 # budget_gt = 29.016 #triangle area under the 2025-2050 trajectory from the original model (in Gt)
 
@@ -322,10 +322,30 @@ for tech_name, capex_val in realistic_capex.items():
 #     )
 #     print(f"-> Budget successfully updated to {budget_gt} tons in the energy_system.")
 
+# # Define a single target for 2050 to force net-zero at the end of the horizon
+# net_zero_target = {
+#     2050: 0.0
+# }
+
+# # Create the time-series DataFrame for the 2050 cap
+# df_net_zero = pd.DataFrame({
+#     "year": list(net_zero_target.keys()),
+#     "carbon_emissions_annual_limit": list(net_zero_target.values())
+# })
+# df_net_zero.set_index("year", inplace=True)
+
+# if hasattr(system_element, "carbon_emissions_annual_limit"):
+#     system_element.carbon_emissions_annual_limit.set_data(
+#         df=df_net_zero,
+#         unit="gigatons", 
+#         source=thesis_source
+#     )
+#     print(f"-> Successfully applied 2050 net-zero constraint:\n{df_net_zero}")
+
 # ================================================
 # 4.7 Inject Year-Dependent Carbon Price from Shadow Prices
 # ================================================
-carbon_price_file = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/calculated_carbon_prices.csv")
+carbon_price_file = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/calculated_carbon_prices_budget.csv")
 parameter_name = "price_carbon_emissions" 
 
 if carbon_price_file.exists():
@@ -349,6 +369,36 @@ if carbon_price_file.exists():
         source=thesis_source 
     )
     print(f"-> Successfully applied dynamic carbon prices: \n{df_carbon}")
+
+# # ================================================
+# # 4.8 Inject Annual Carbon Emission Limits (EEA Goals)
+# # ================================================
+# print("\n--- Injecting EEA Annual Carbon Emission Targets ---")
+
+# # Define the targets
+# eea_targets = {
+#     2020: 3.78,
+#     2030: 2.127,
+#     2040: 0.473,
+#     2050: 0.0
+# }
+
+# # Create the time-series DataFrame
+# df_emissions = pd.DataFrame({
+#     "year": list(eea_targets.keys()),
+#     "carbon_emissions_annual_limit": list(eea_targets.values())
+# })
+# df_emissions.set_index("year", inplace=True)
+
+# system_element = model.energy_system
+
+# if hasattr(system_element, "carbon_emissions_annual_limit"):
+#     system_element.carbon_emissions_annual_limit.set_data(
+#         df=df_emissions,
+#         unit="gigatons", 
+#         source=thesis_source
+#     )
+#     print(f"-> Successfully applied annual carbon limits:\n{df_emissions}")
 
 # 5) Validate and write files
 model.write()
