@@ -8,9 +8,9 @@ from pathlib import Path
 # ============================================================
 BASE_ZEN_PATH = Path(r"C:\Users\joell\Documents\ETH\Master\master_thesis\ZEN-garden")
 
-model_100_path = BASE_ZEN_PATH / "Europe_calibrated_carbon_budget"
-model_90_path = BASE_ZEN_PATH / "Europe_calibrated_with_Updated_EVs_carbon_budget"
-hybrid_model_path = BASE_ZEN_PATH / "Europe_calibrated_dynamic_adoption_carbon_budget"
+model_100_path = BASE_ZEN_PATH / "EV100_carbon_budget"  #change if needed
+model_90_path = BASE_ZEN_PATH / "EV90_carbon_budget"  #change if needed
+hybrid_model_path = BASE_ZEN_PATH / "EV_dynamic_adoption_carbon_budget"  #change if needed
 print("Starting Pure File-Based Model Merge & Registry Patch...")
 
 # ============================================================

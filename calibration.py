@@ -10,7 +10,7 @@ model = Model.from_existing(Path("C:/Users/joell/Documents/ETH/Master/master_the
 
 # 2) Modify model
 model.output_folder = Path("C:/Users/joell/Documents/ETH/Master/master_thesis/ZEN-garden")
-model.name = "Europe_calibrated_carbon_budget"
+model.name = "EV100_carbon_budget" #change if needed
 
 # 3) Load new dataset
 entsoe_ds = EntsoePPDataset(source_path=Path("C:/Users/joell/Documents/ETH/Master/master_thesis/datasets"))
